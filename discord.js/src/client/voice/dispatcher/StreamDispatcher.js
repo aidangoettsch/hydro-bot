@@ -30,7 +30,11 @@ const nonce = Buffer.alloc(24);
  * @extends {WritableStream}
  */
 class StreamDispatcher extends Writable {
-  constructor(player, { seek = 0, volume = 1, fec, plp, bitrate = 96, highWaterMark = 12 } = {}, streams) {
+  constructor(
+    player,
+    { seek = 0, volume = 1, fec, plp, bitrate = 96, highWaterMark = 12, live = false } = {},
+    streams,
+  ) {
     const streamOptions = { seek, volume, fec, plp, bitrate, highWaterMark };
     super(streamOptions);
     /**
@@ -38,6 +42,13 @@ class StreamDispatcher extends Writable {
      * @type {AudioPlayer}
      */
     this.player = player;
+
+    /**
+     * If this dispatcher corresponds to a stream
+     * @type {boolean}
+     */
+    this.live = live;
+
     this.streamOptions = streamOptions;
     this.streams = streams;
     this.streams.silence = new Silence();
@@ -287,7 +298,7 @@ class StreamDispatcher extends Writable {
      * @event StreamDispatcher#debug
      * @param {string} info The debug info
      */
-    this._setSpeaking(1);
+    this._setSpeaking(this.live ? 2 : 1);
     if (!this.player.voiceConnection.sockets.udp) {
       this.emit('debug', 'Failed to send a packet - no UDP socket');
       return;

@@ -11,13 +11,15 @@ const { OPCodes, VoiceOPCodes } = require('../../../util/Constants');
  * @private
  */
 class VoiceWebSocket extends EventEmitter {
-  constructor(connection) {
+  constructor(connection, serverId) {
     super();
     /**
      * The Voice Connection that this WebSocket serves
      * @type {VoiceConnection}
      */
     this.connection = connection;
+
+    this.serverId = serverId || this.connection.channel.guild.id;
 
     /**
      * How many connection attempts have been made
@@ -74,7 +76,7 @@ class VoiceWebSocket extends EventEmitter {
      * The actual WebSocket used to connect to the Voice WebSocket Server.
      * @type {WebSocket}
      */
-    this.ws = WebSocket.create(`wss://${this.connection.authentication.endpoint}/`, { v: 4 });
+    this.ws = WebSocket.create(`wss://${this.connection.authentication.endpoint}/`, { v: 5 });
     this.emit('debug', `[WS] connecting, ${this.attempts} attempts, ${this.ws.url}`);
     this.ws.onopen = this.onOpen.bind(this);
     this.ws.onmessage = this.onMessage.bind(this);
@@ -120,7 +122,7 @@ class VoiceWebSocket extends EventEmitter {
     this.sendPacket({
       op: OPCodes.DISPATCH,
       d: {
-        server_id: this.connection.channel.guild.id,
+        server_id: this.serverId,
         user_id: this.client.user.id,
         token: this.connection.authentication.token,
         session_id: this.connection.authentication.sessionID,

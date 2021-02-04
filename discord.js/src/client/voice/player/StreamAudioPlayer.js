@@ -1,14 +1,14 @@
 'use strict';
 
 const BasePlayer = require('./BasePlayer');
-const StreamConnection = require('../StreamConnection')
+const StreamConnection = require('../StreamConnection');
 
 /**
  * An Audio Player for a Voice Connection.
  * @private
  * @extends {BasePlayer}
  */
-class AudioPlayer extends BasePlayer {
+class StreamAudioPlayer extends BasePlayer {
   constructor(voiceConnection) {
     super();
     /**
@@ -28,4 +28,4 @@ class AudioPlayer extends BasePlayer {
   }
 }
 
-module.exports = AudioPlayer;
+module.exports = StreamAudioPlayer;

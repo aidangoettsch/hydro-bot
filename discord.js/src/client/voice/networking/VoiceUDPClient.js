@@ -123,6 +123,33 @@ class VoiceConnectionUDPClient extends EventEmitter {
             port: packet.port,
             mode: this.voiceConnection.authentication.mode,
           },
+          address: packet.address,
+          port: packet.port,
+          mode: this.voiceConnection.authentication.mode,
+          codecs: [
+            { name: 'opus', type: 'audio', priority: 1000, payload_type: 120 },
+            {
+              name: 'H264',
+              type: 'video',
+              priority: 1000,
+              payload_type: 101,
+              rtx_payload_type: 102,
+            },
+            {
+              name: 'VP8',
+              type: 'video',
+              priority: 2000,
+              payload_type: 103,
+              rtx_payload_type: 104,
+            },
+            {
+              name: 'VP9',
+              type: 'video',
+              priority: 3000,
+              payload_type: 105,
+              rtx_payload_type: 106,
+            },
+          ],
         },
       });
 

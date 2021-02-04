@@ -273,7 +273,7 @@ declare module 'discord.js' {
     public connections: Collection<Snowflake, VoiceConnection>;
     public broadcasts: VoiceBroadcast[];
 
-    private joinChannel(channel: VoiceChannel): Promise<VoiceConnection>;
+    private joinChannel(channel: VoiceChannel, video: boolean): Promise<VoiceConnection>;
 
     public createBroadcast(): VoiceBroadcast;
   }
@@ -1423,6 +1423,7 @@ declare module 'discord.js' {
     public readonly bitrateEditable: boolean;
     public broadcast: VoiceBroadcast | null;
     public readonly paused: boolean;
+    public live: boolean;
     public pausedSince: number | null;
     public readonly pausedTime: number;
     public player: object;
@@ -1450,19 +1451,6 @@ declare module 'discord.js' {
     public once(event: 'speaking', listener: (speaking: boolean) => void): this;
     public once(event: 'volumeChange', listener: (oldVolume: number, newVolume: number) => void): this;
     public once(event: string, listener: (...args: any[]) => void): this;
-  }
-
-  export class Structures {
-    public static get<K extends keyof Extendable>(structure: K): Extendable[K];
-    public static get(structure: string): (...args: any[]) => void;
-    public static extend<K extends keyof Extendable, T extends Extendable[K]>(
-      structure: K,
-      extender: (baseClass: Extendable[K]) => T,
-    ): T;
-    public static extend<T extends (...args: any[]) => void>(
-      structure: string,
-      extender: (baseClass: typeof Function) => T,
-    ): T;
   }
 
   export class SystemChannelFlags extends BitField<SystemChannelFlagsString> {
@@ -1623,7 +1611,7 @@ declare module 'discord.js' {
   }
 
   class VoiceConnection extends EventEmitter {
-    constructor(voiceManager: ClientVoiceManager, channel: VoiceChannel);
+    constructor(voiceManager: ClientVoiceManager, channel: VoiceChannel, video: boolean);
     private authentication: object;
     private sockets: object;
     private ssrcMap: Map<number, boolean>;
@@ -1647,13 +1635,74 @@ declare module 'discord.js' {
     public readonly client: Client;
     public readonly dispatcher: StreamDispatcher | null;
     public player: object;
+    public videoPlayer: object;
     public receiver: VoiceReceiver;
     public speaking: Readonly<Speaking>;
     public status: VoiceStatus;
+    public readonly streamConn: StreamConnection | null;
+    public readonly video: boolean;
+    public readonly voice: VoiceState | null;
+    public voiceManager: ClientVoiceManager;
+    public disconnect(): void;
+    public joinStream(user: User): Promise<StreamConnection>;
+    public stream(user: User): Promise<StreamConnection>;
+    public play(input: VoiceBroadcast | Readable | string, options?: StreamOptions): StreamDispatcher;
+    public playVideo(input: VoiceBroadcast | Readable | string, options?: StreamOptions): VideoDispatcher;
+    public setSpeaking(value: BitFieldResolvable<SpeakingString>): void;
+
+    public on(event: 'authenticated' | 'closing' | 'newSession' | 'ready' | 'reconnecting', listener: () => void): this;
+    public on(event: 'debug', listener: (message: string) => void): this;
+    public on(event: 'error' | 'failed' | 'disconnect', listener: (error: Error) => void): this;
+    public on(event: 'speaking', listener: (user: User, speaking: Readonly<Speaking>) => void): this;
+    public on(event: 'warn', listener: (warning: string | Error) => void): this;
+    public on(event: string, listener: (...args: any[]) => void): this;
+
+    public once(
+      event: 'authenticated' | 'closing' | 'newSession' | 'ready' | 'reconnecting',
+      listener: () => void,
+    ): this;
+    public once(event: 'debug', listener: (message: string) => void): this;
+    public once(event: 'error' | 'failed' | 'disconnect', listener: (error: Error) => void): this;
+    public once(event: 'speaking', listener: (user: User, speaking: Readonly<Speaking>) => void): this;
+    public once(event: 'warn', listener: (warning: string | Error) => void): this;
+    public once(event: string, listener: (...args: any[]) => void): this;
+  }
+
+  class StreamConnection extends EventEmitter {
+    constructor(voiceManager: ClientVoiceManager, channel: VoiceChannel, video: boolean);
+    private authentication: object;
+    private sockets: object;
+    private ssrcMap: Map<number, boolean>;
+    private _speaking: Map<Snowflake, Readonly<Speaking>>;
+    private _disconnect(): void;
+    private authenticate(): void;
+    private authenticateFailed(reason: string): void;
+    private checkAuthenticated(): void;
+    private cleanup(): void;
+    private connect(): void;
+    private onReady(data: object): void;
+    private onSessionDescription(mode: string, secret: string): void;
+    private onSpeaking(data: object): void;
+    private reconnect(token: string, endpoint: string): void;
+    private sendVoiceStateUpdate(options: object): Promise<Shard>;
+    private setSessionID(sessionID: string): void;
+    private setTokenAndEndpoint(token: string, endpoint: string): void;
+    private updateChannel(channel: VoiceChannel): void;
+
+    public channel: VoiceChannel;
+    public readonly client: Client;
+    public readonly dispatcher: StreamDispatcher | null;
+    public player: object;
+    public videoPlayer: object;
+    public receiver: VoiceReceiver;
+    public speaking: Readonly<Speaking>;
+    public status: VoiceStatus;
+    public readonly video: boolean;
     public readonly voice: VoiceState | null;
     public voiceManager: ClientVoiceManager;
     public disconnect(): void;
     public play(input: VoiceBroadcast | Readable | string, options?: StreamOptions): StreamDispatcher;
+    public playVideo(input: VoiceBroadcast | Readable | string, options?: StreamOptions): VideoDispatcher;
     public setSpeaking(value: BitFieldResolvable<SpeakingString>): void;
 
     public on(event: 'authenticated' | 'closing' | 'newSession' | 'ready' | 'reconnecting', listener: () => void): this;
@@ -2413,6 +2462,8 @@ declare module 'discord.js' {
     typingStart: [channel: Channel | PartialDMChannel, user: User | PartialUser];
     userUpdate: [oldUser: User | PartialUser, newUser: User];
     voiceStateUpdate: [oldState: VoiceState, newState: VoiceState];
+    streamServer: [data: {endpoint: string, token: string}];
+    streamCreate: [data: {rtc_server_id: string}];
     webhookUpdate: [channel: TextChannel];
     shardDisconnect: [closeEvent: CloseEvent, shardID: number];
     shardError: [error: Error, shardID: number];
@@ -2424,6 +2475,7 @@ declare module 'discord.js' {
   interface ClientOptions {
     shards?: number | number[] | 'auto';
     shardCount?: number;
+    tokenType?: 'Bearer' | 'Bot';
     messageCacheMaxSize?: number;
     messageCacheLifetime?: number;
     messageSweepInterval?: number;
@@ -3237,6 +3289,7 @@ declare module 'discord.js' {
     fec?: boolean;
     bitrate?: number | 'auto';
     highWaterMark?: number;
+    live?: boolean;
   }
 
   type SpeakingString = 'SPEAKING' | 'SOUNDSHARE' | 'PRIORITY_SPEAKING';
@@ -3279,6 +3332,38 @@ declare module 'discord.js' {
   type UserResolvable = User | Snowflake | Message | GuildMember;
 
   type VerificationLevel = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
+
+  class VideoDispatcher extends Writable {
+    constructor(player: object);
+    public player: object;
+
+    public on(event: 'close' | 'drain' | 'finish' | 'start', listener: () => void): this;
+    public on(event: 'debug', listener: (info: string) => void): this;
+    public on(event: 'error', listener: (err: Error) => void): this;
+    public on(event: 'pipe' | 'unpipe', listener: (src: Readable) => void): this;
+    public on(event: 'speaking', listener: (speaking: boolean) => void): this;
+    public on(event: string, listener: (...args: any[]) => void): this;
+
+    public once(event: 'close' | 'drain' | 'finish' | 'start', listener: () => void): this;
+    public once(event: 'debug', listener: (info: string) => void): this;
+    public once(event: 'error', listener: (err: Error) => void): this;
+    public once(event: 'pipe' | 'unpipe', listener: (src: Readable) => void): this;
+    public once(event: 'speaking', listener: (speaking: boolean) => void): this;
+    public once(event: string, listener: (...args: any[]) => void): this;
+  }
+
+  export class Structures {
+    public static get<K extends keyof Extendable>(structure: K): Extendable[K];
+    public static get(structure: string): (...args: any[]) => void;
+    public static extend<K extends keyof Extendable, T extends Extendable[K]>(
+        structure: K,
+        extender: (baseClass: Extendable[K]) => T,
+    ): T;
+    public static extend<T extends (...args: any[]) => void>(
+        structure: string,
+        extender: (baseClass: typeof Function) => T,
+    ): T;
+  }
 
   type VoiceStatus = number;
 
@@ -3362,6 +3447,8 @@ declare module 'discord.js' {
     | 'TYPING_START'
     | 'VOICE_STATE_UPDATE'
     | 'VOICE_SERVER_UPDATE'
+    | 'STREAM_CREATE'
+    | 'STREAM_SERVER_UPDATE'
     | 'WEBHOOKS_UPDATE';
 
   //#endregion

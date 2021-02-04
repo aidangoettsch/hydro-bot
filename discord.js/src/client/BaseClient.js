@@ -45,7 +45,7 @@ class BaseClient extends EventEmitter {
      * @type {RESTManager}
      * @private
      */
-    this.rest = new RESTManager(this, options._tokenType);
+    this.rest = new RESTManager(this, options.tokenType);
   }
 
   /**
