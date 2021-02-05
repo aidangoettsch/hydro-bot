@@ -1604,7 +1604,7 @@ declare module 'discord.js' {
     public readonly speakable: boolean;
     public type: 'voice';
     public userLimit: number;
-    public join(): Promise<VoiceConnection>;
+    public join(video: boolean): Promise<VoiceConnection>;
     public leave(): void;
     public setBitrate(bitrate: number, reason?: string): Promise<VoiceChannel>;
     public setUserLimit(userLimit: number, reason?: string): Promise<VoiceChannel>;
@@ -1647,7 +1647,13 @@ declare module 'discord.js' {
     public joinStream(user: User): Promise<StreamConnection>;
     public stream(user: User): Promise<StreamConnection>;
     public play(input: VoiceBroadcast | Readable | string, options?: StreamOptions): StreamDispatcher;
-    public playVideo(input: VoiceBroadcast | Readable | string, options?: StreamOptions): VideoDispatcher;
+    public playVideo(input: VoiceBroadcast | Readable | string | {
+      audio?: string
+      video: string
+    }, options?: StreamOptions): {
+      video: VideoDispatcher
+      audio: StreamDispatcher
+    };
     public setSpeaking(value: BitFieldResolvable<SpeakingString>): void;
 
     public on(event: 'authenticated' | 'closing' | 'newSession' | 'ready' | 'reconnecting', listener: () => void): this;
@@ -3287,9 +3293,13 @@ declare module 'discord.js' {
     volume?: number | boolean;
     plp?: number;
     fec?: boolean;
-    bitrate?: number | 'auto';
+    bitrate?: number | string;
     highWaterMark?: number;
     live?: boolean;
+    useNvenc?: boolean;
+    useVaapi?: boolean;
+    rtBufferSize?: string;
+    audioDelay?: number;
   }
 
   type SpeakingString = 'SPEAKING' | 'SOUNDSHARE' | 'PRIORITY_SPEAKING';

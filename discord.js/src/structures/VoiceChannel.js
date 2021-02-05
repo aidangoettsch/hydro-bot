@@ -119,6 +119,7 @@ class VoiceChannel extends GuildChannel {
 
   /**
    * Attempts to join this voice channel.
+   * @param {boolean} video If video should be enabled
    * @returns {Promise<VoiceConnection>}
    * @example
    * // Join a voice channel
@@ -126,8 +127,8 @@ class VoiceChannel extends GuildChannel {
    *   .then(connection => console.log('Connected!'))
    *   .catch(console.error);
    */
-  join() {
-    return this.client.voice.joinChannel(this);
+  join(video) {
+    return this.client.voice.joinChannel(this, video);
   }
 
   /**
