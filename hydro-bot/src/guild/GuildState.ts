@@ -7,6 +7,10 @@ import {Bot} from "../bot";
 import {MediaResult} from "../downloader/Downloader";
 import {StreamDispatcher, TextChannel, User, VoiceChannel, VoiceConnection} from "discord.js";
 import path from "path";
+import PuppeteerCapture from "../ui/PuppeteerCapture";
+import debugBase from "debug";
+
+const debugVideo = debugBase('video')
 
 export type QueuedMedia = MediaResult & {requester: User}
 
@@ -29,6 +33,7 @@ export default class GuildState {
   private readonly configPath: string;
 
   private voiceState: VoiceState | null = null
+  private puppeteerCapture = new PuppeteerCapture(this)
 
   constructor (private bot: Bot, public id: string) {
     this.configPath = `../../config/${id}.json`
@@ -98,13 +103,21 @@ export default class GuildState {
     const media = this.voiceState.queue.shift()
     if (!media) throw new Error("Queue is empty")
 
+    const stream = await this.puppeteerCapture.getStream()
     const {audio: audioDispatcher} = await this.voiceState.voiceConnection.playVideo(
-        "video" in media.streamURLs ? media.streamURLs : media.streamURLs.both,
+        stream,
         {
           ...this.bot.config.video,
           volume: this.config.volume
         }
     )
+    // const {audio: audioDispatcher} = await this.voiceState.voiceConnection.playVideo(
+    //     "video" in media.streamURLs ? media.streamURLs : media.streamURLs.both,
+    //     {
+    //       ...this.bot.config.video,
+    //       volume: this.config.volume
+    //     }
+    // )
 
     audioDispatcher.once('finish', this.finishTrack.bind(this))
 
