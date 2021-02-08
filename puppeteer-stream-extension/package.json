@@ -1,8 +1,0 @@
-{
-  "name": "puppeteer-stream-extension",
-  "version": "1.0.0",
-  "dependencies": {},
-  "scripts": {
-    "build": ""
-  }
-}

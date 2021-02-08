@@ -5,7 +5,7 @@ import puppeteer from "puppeteer";
 import path from "path";
 import debugBase from "debug";
 
-const debugBrowser = debugBase('browser')
+const debugBrowser = debugBase('hydro-bot:browser')
 
 const EXTENSION_ID = "jjndjgheafjngoipoacpjgeicjeomjli"
 
