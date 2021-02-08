@@ -85,8 +85,8 @@ export class Bot {
                 })
         })
 
-        this.client.on('debug', (m: string) => debugBase('hydro-bot:discordjs-client')(`[CLIENT] ${m}`))
-        this.videoClient.on('debug', (m: string) => debugBase('hydro-bot:discordjs-video')(`[VIDEO CLIENT] ${m}`))
+        this.client.on('debug', (m: string) => debugBase('discordjs-client')(`[CLIENT] ${m}`))
+        this.videoClient.on('debug', (m: string) => debugBase('discordjs-video')(`[VIDEO CLIENT] ${m}`))
 
         await this.client.login(this.config.token)
         await this.videoClient.login(this.config.videoToken)

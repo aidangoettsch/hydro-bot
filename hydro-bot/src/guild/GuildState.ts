@@ -10,7 +10,7 @@ import path from "path";
 import PuppeteerCapture from "../ui/PuppeteerCapture";
 import debugBase from "debug";
 
-const debugVideo = debugBase('hydro-bot:video')
+const debugVideo = debugBase('video')
 
 export type QueuedMedia = MediaResult & {requester: User}
 
