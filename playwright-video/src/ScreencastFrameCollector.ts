@@ -153,6 +153,7 @@ export class ScreencastFrameCollector extends EventEmitter {
       // most likely it is due to the original page closing
       await previousClient.send('Page.startScreencast', {
         everyNthFrame: 1,
+        format: "png"
       });
     } catch (e) {
       debug('error reactivating previous page %j', e.message);

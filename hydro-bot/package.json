@@ -20,9 +20,11 @@
     "ytdl-core": "~4.4.5",
     "youtube-dl": "~3.1.0",
     "@types/youtube-dl": "~3.0.0",
-    "puppeteer-stream-extension": "^1.0.0",
-    "puppeteer": "~7.0.1",
-    "@discordjs/opus": "~0.4.0"
+    "@discordjs/opus": "~0.4.0",
+    "playwright": "~1.8.0",
+    "playwright-video": "~2.4.0",
+    "web-ui": "~0.1.0",
+    "prism-media": "~1.2.5"
   },
   "devDependencies": {
     "@types/debug": "~4.1.5"

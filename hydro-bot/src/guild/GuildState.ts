@@ -9,15 +9,19 @@ import {StreamDispatcher, TextChannel, User, VoiceChannel, VoiceConnection} from
 import path from "path";
 import PuppeteerCapture from "../ui/PuppeteerCapture";
 import debugBase from "debug";
+import {PassThrough} from "stream";
+import ChildProcess from 'child_process';
+import prism from 'prism-media'
 
-const debugVideo = debugBase('video')
+const debugVideo = debugBase('hydro-bot:video')
+const IMAGE_EXTS = ['.jpg', '.png', '.jpeg'];
+const JPEG_EXTS = ['.jpg', '.jpeg'];
 
 export type QueuedMedia = MediaResult & {requester: User}
 
 interface Playing {
   currentMedia: QueuedMedia
   startTime: number
-  audioDispatcher: StreamDispatcher
 }
 
 interface VoiceState {
@@ -26,6 +30,7 @@ interface VoiceState {
   voiceConnection: VoiceConnection
   voiceChannel: VoiceChannel
   logChannel: TextChannel
+  audioDispatcher: StreamDispatcher
 }
 
 export default class GuildState {
@@ -34,6 +39,9 @@ export default class GuildState {
 
   private voiceState: VoiceState | null = null
   private puppeteerCapture = new PuppeteerCapture(this)
+
+  private mediaStream = new PassThrough()
+  private ffmpeg?: ChildProcess.ChildProcess
 
   constructor (private bot: Bot, public id: string) {
     this.configPath = `../../config/${id}.json`
@@ -61,13 +69,39 @@ export default class GuildState {
 
     const voiceConnection  = await videoClientChannel.join(true)
 
+    const browserStream = await this.puppeteerCapture.getStream()
+
+    const {audio: audioDispatcher} = await voiceConnection.playVideo(
+        [
+          {
+            resource: browserStream,
+            format: "image2pipe",
+            options: [
+              '-framerate', '30',
+              '-video_size', '1920x1080'
+            ]
+          },
+          {
+            resource: this.mediaStream,
+          }
+        ],
+        {
+          ...this.bot.config.video,
+          volume: this.config.volume,
+          filters: ['[0:v]colorkey=0x00ff00:0.2:0.2[ckout];[1:v][ckout]overlay[out]'],
+          mapVideo: "[out]",
+        }
+    )
+
     this.voiceState = {
+      audioDispatcher,
       voiceConnection,
       voiceChannel,
       logChannel,
       queue: [],
       playing: null
     }
+
     await logChannel.send(this.bot.embedFactory.info(
         `Joined voice channel: [${voiceChannel.id}] on guild [${voiceChannel.guild.name}]`
     ))
@@ -78,9 +112,8 @@ export default class GuildState {
 
     if (this.voiceState.queue.length === 0) {
       await this.voiceState.logChannel.send(this.bot.embedFactory.info(
-          'Queue has been emptied. Leaving voice channel...'
+          'Queue has been emptied. Queue something else with $play!'
       ))
-      this.leaveVoice()
     } else if (this.voiceState.voiceConnection.channel.members.array().length == 1) {
       await this.voiceState.logChannel.send(this.bot.embedFactory.info(
           'Empty voice channel detected. Leaving voice channel...'
@@ -103,29 +136,79 @@ export default class GuildState {
     const media = this.voiceState.queue.shift()
     if (!media) throw new Error("Queue is empty")
 
-    const stream = await this.puppeteerCapture.getStream()
-    const {audio: audioDispatcher} = await this.voiceState.voiceConnection.playVideo(
-        stream,
-        {
-          ...this.bot.config.video,
-          volume: this.config.volume
-        }
-    )
-    // const {audio: audioDispatcher} = await this.voiceState.voiceConnection.playVideo(
-    //     "video" in media.streamURLs ? media.streamURLs : media.streamURLs.both,
-    //     {
-    //       ...this.bot.config.video,
-    //       volume: this.config.volume
-    //     }
-    // )
-
-    audioDispatcher.once('finish', this.finishTrack.bind(this))
-
     this.voiceState.playing = {
       currentMedia: media,
       startTime: Date.now(),
-      audioDispatcher
     }
+
+    const resources = "both" in media.streamURLs ? [
+      {
+        resource: media.streamURLs.both
+      }
+    ] : [
+      {
+        resource: media.streamURLs.video
+      },
+      {
+        resource: media.streamURLs.audio
+      }
+    ]
+
+    const inputArgs: string[] = ([] as string[]).concat(
+      ...resources.map((resource: {
+        resource: string,
+        format?: string,
+        options?: string[],
+      }) => {
+        const isImage = IMAGE_EXTS.includes(path.parse(resource.resource).ext);
+        const isJpeg = isImage && JPEG_EXTS.includes(path.parse(resource.resource).ext);
+
+        const format = resource.format || (isJpeg ? 'jpeg_pipe' : null);
+        return [
+          ...(isImage ? ['-loop', '1'] : []),
+          ...(resource.options || []),
+          ...(format ? ['-f', format] : []),
+          '-protocol_whitelist',
+          'tcp,tls,pipe,http,https,crypto',
+          '-re',
+          '-i',
+          resource.resource,
+        ];
+      }),
+    );
+
+    const args = [
+      '-frame_drop_threshold',
+      '-0.1',
+      ...inputArgs,
+      '-c:v',
+      'rawvideo',
+      '-c:a',
+      'pcm_s16le',
+      '-f',
+      'nut',
+      'pipe:3',
+    ];
+
+    const ffmpeg = this.ffmpeg = ChildProcess.spawn(prism.FFmpeg.getInfo().command, args, {
+      windowsHide: true,
+      stdio: new Array(5).fill("pipe")
+    });
+    ffmpeg.on('exit', () => {
+      ffmpeg.stdio[3]?.removeAllListeners('data')
+      this.finishTrack()
+    });
+    ffmpeg.stdin.on('error', e => {
+      debugVideo(`[ffmpeg in] ${e.message}`)
+    });
+    ffmpeg.stderr.on('data', e => {
+      debugVideo(`[ffmpeg err] ${e.toString()}`);
+    });
+    ffmpeg.stderr.on('error', e => {
+      debugVideo(`[ffmpeg err] ${e.toString()}`);
+    });
+
+    this.ffmpeg.stdio[3]?.on('data', d => this.mediaStream.write(d))
 
     await this.voiceState.logChannel.send(this.bot.embedFactory.mediaInfo(media))
   }
@@ -133,9 +216,10 @@ export default class GuildState {
   leaveVoice(): void {
     if (!this.voiceState) throw new Error("Not connected to a voice channel!")
     this.voiceState.voiceConnection.disconnect()
+    this.puppeteerCapture.destroy()
 
     if (this.voiceState.playing) {
-      this.voiceState.playing.audioDispatcher.removeAllListeners('finish')
+      this.voiceState.audioDispatcher.removeAllListeners('finish')
     }
 
     this.voiceState = null
@@ -148,18 +232,14 @@ export default class GuildState {
     this.saveConfig()
 
     if (this.voiceState.playing) {
-      this.voiceState.playing.audioDispatcher.setVolume(volume)
+      this.voiceState.audioDispatcher.setVolume(volume)
     }
   }
 
-  async skipTrack (): Promise<void> {
+  async skipTrack(): Promise<void> {
     if (!this.voiceState) throw new Error("Not connected to a voice channel!")
-    const { player, videoPlayer } = this.voiceState.voiceConnection
 
-    // @ts-ignore
-    player.destroy()
-    // @ts-ignore
-    videoPlayer.destroy()
+    this.ffmpeg?.kill()
   }
 
   public get inVoice(): boolean {

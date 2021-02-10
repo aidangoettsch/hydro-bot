@@ -1610,6 +1610,12 @@ declare module 'discord.js' {
     public setUserLimit(userLimit: number, reason?: string): Promise<VoiceChannel>;
   }
 
+  interface StreamInput {
+    resource: Readable | string;
+    format?: string;
+    options?: string[];
+  }
+
   class VoiceConnection extends EventEmitter {
     constructor(voiceManager: ClientVoiceManager, channel: VoiceChannel, video: boolean);
     private authentication: object;
@@ -1647,10 +1653,7 @@ declare module 'discord.js' {
     public joinStream(user: User): Promise<StreamConnection>;
     public stream(user: User): Promise<StreamConnection>;
     public play(input: VoiceBroadcast | Readable | string, options?: StreamOptions): StreamDispatcher;
-    public playVideo(input: VoiceBroadcast | Readable | string | {
-      audio?: string
-      video: string
-    }, options?: StreamOptions): {
+    public playVideo(input: StreamInput[], options?: StreamOptions): {
       video: VideoDispatcher
       audio: StreamDispatcher
     };
@@ -3300,6 +3303,10 @@ declare module 'discord.js' {
     useVaapi?: boolean;
     rtBufferSize?: string;
     audioDelay?: number;
+    audio?: boolean;
+    filters?: string[];
+    mapVideo?: string;
+    mapAudio?: string;
   }
 
   type SpeakingString = 'SPEAKING' | 'SOUNDSHARE' | 'PRIORITY_SPEAKING';

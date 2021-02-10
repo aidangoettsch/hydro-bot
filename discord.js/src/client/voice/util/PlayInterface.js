@@ -86,14 +86,7 @@ class PlayInterface {
   }
 
   playVideo(resource, options = {}) {
-    if (
-      resource instanceof Readable ||
-      typeof resource === 'string' ||
-      (typeof resource.audio === 'string' && typeof resource.video === 'string')
-    ) {
-      return this.videoPlayer.playVideo(resource, options);
-    }
-    throw new Error('VOICE_PLAY_INTERFACE_BAD_TYPE');
+    return this.videoPlayer.playVideo(resource, options);
   }
 
   static applyToClass(structure) {
