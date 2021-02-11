@@ -40,7 +40,8 @@ export default class GuildState {
   private voiceState: VoiceState | null = null
   private puppeteerCapture = new PuppeteerCapture(this)
 
-  private mediaStream = new PassThrough()
+  private videoStream = new PassThrough()
+  private audioStream = new PassThrough()
   private ffmpeg?: ChildProcess.ChildProcess
 
   constructor (private bot: Bot, public id: string) {
@@ -82,7 +83,20 @@ export default class GuildState {
             ]
           },
           {
-            resource: this.mediaStream,
+            resource: this.videoStream,
+            format: "rawvideo",
+            options: [
+              '-pix_fmt', 'yuv420p',
+              '-video_size', '1920x1080'
+            ]
+          },
+          {
+            resource: this.audioStream,
+            format: "s16le",
+            options: [
+              '-ar', '48000',
+              '-ac', '2'
+            ]
           }
         ],
         {
@@ -181,13 +195,26 @@ export default class GuildState {
       '-frame_drop_threshold',
       '-0.1',
       ...inputArgs,
+      '-an',
       '-c:v',
       'rawvideo',
+      '-pix_fmt',
+      'yuv420p',
+      '-vf',
+      "scale='if(gt(a*sar,16/9),1920,1080*iw*sar/ih)':'if(gt(a*sar,16/9),1920*ih/iw/sar,1080)',pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1",
+      '-f',
+      'rawvideo',
+      'pipe:3',
+      '-vn',
+      '-ar',
+      '48000',
       '-c:a',
       'pcm_s16le',
+      '-ac',
+      '2',
       '-f',
-      'nut',
-      'pipe:3',
+      's16le',
+      'pipe:4',
     ];
 
     const ffmpeg = this.ffmpeg = ChildProcess.spawn(prism.FFmpeg.getInfo().command, args, {
@@ -208,7 +235,8 @@ export default class GuildState {
       debugVideo(`[ffmpeg err] ${e.toString()}`);
     });
 
-    this.ffmpeg.stdio[3]?.on('data', d => this.mediaStream.write(d))
+    this.ffmpeg.stdio[3]?.on('data', d => this.videoStream.write(d))
+    this.ffmpeg.stdio[4]?.on('data', d => this.audioStream.write(d))
 
     await this.voiceState.logChannel.send(this.bot.embedFactory.mediaInfo(media))
   }
