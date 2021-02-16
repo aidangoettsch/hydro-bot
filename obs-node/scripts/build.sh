@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-OBS_STUDIO_VERSION=26.0.2-patch1
+OBS_STUDIO_VERSION=26.1.1
 MAXOS_DEPS_VERSION=2020-08-30
 
 BASE_DIR="$(pwd)"
@@ -30,7 +30,11 @@ if [[ $BUILD_TYPE == 'all' || $BUILD_TYPE == 'obs-studio' ]]; then
   # Clone obs studio
   if [[ ! -d "${OBS_STUDIO_DIR}" ]]; then
     pushd "${OBS_STUDIO_BUILD_DIR}"
-    git clone --recursive -b ${OBS_STUDIO_VERSION} --single-branch https://github.com/MengLi619/obs-studio.git "obs-studio-${OBS_STUDIO_VERSION}"
+    git clone --recursive --single-branch https://github.com/obsproject/obs-studio.git "obs-studio-${OBS_STUDIO_VERSION}"
+
+    pushd "${OBS_STUDIO_DIR}"
+    git checkout $OBS_STUDIO_VERSION
+    popd
     popd
   fi
 
@@ -109,9 +113,9 @@ if [[ $BUILD_TYPE == 'all' || $BUILD_TYPE == 'obs-node' ]]; then
   if [[ ! -d "$BASE_DIR/node_modules/" ]]; then
     npm ci
   fi
-  node node_modules/.bin/cmake-js configure \
+  node_modules/.bin/cmake-js configure \
     "$([[ $RELEASE_TYPE == 'Debug' ]] && echo '-D')" \
-    --CDOBS_STUDIO_DIR="${OBS_INSTALL_PREFIX}"
+    --CDOBS_STUDIO_DIR="${OBS_INSTALL_PREFIX}" 2>&1
   cmake --build build --config ${RELEASE_TYPE}
 
   # Copy obs-node to prebuild

@@ -208,8 +208,7 @@ class VideoPlayer extends EventEmitter {
       }
     }
     if (port === 41240) {
-      console.error(`[PLAY VIDEO ERROR] Could not bind to any UDP port on 41234-41240`);
-      return;
+      throw new Error(`[PLAY VIDEO ERROR] Could not bind to any UDP port on 41234-41240`);
     }
 
     const baseFd = 3;
@@ -302,6 +301,48 @@ class VideoPlayer extends EventEmitter {
 
     this.streams = streams;
     return {
+      video: this.dispatcher,
+      ...(audio ? { audio: this.voiceConnection.play(streams.audioStream, { type: 'opus', volume }) } : {}),
+    };
+  }
+
+  async manualPlayVideo({ audio = true, volume = 1.0 } = {}) {
+    await this.voiceConnection.resetVideoContext();
+
+    this.dispatcher = this.createDispatcher();
+
+    this.server = dgram.createSocket('udp4');
+    const streams = audio
+      ? {
+          audioStream: new PassThroughStream(),
+        }
+      : {};
+    this.server.on('error', err => {
+      this.destroy();
+      this.emit('finish');
+    });
+
+    this.server.on('message', buffer => {
+      const payloadType = buffer[1] & 0b1111111;
+      if (payloadType === 96 && this.dispatcher) this.dispatcher.write(buffer);
+      if (payloadType === 97 && audio && streams.audioStream) streams.audioStream.write(buffer.slice(12));
+    });
+
+    let port = 41234;
+    while (port < 41240) {
+      try {
+        this.server.bind(port);
+        break;
+      } catch {
+        port++;
+      }
+    }
+    if (port === 41240) {
+      throw new Error(`[PLAY VIDEO ERROR] Could not bind to any UDP port on 41234-41240`);
+    }
+
+    return {
+      port,
       video: this.dispatcher,
       ...(audio ? { audio: this.voiceConnection.play(streams.audioStream, { type: 'opus', volume }) } : {}),
     };

@@ -396,6 +396,11 @@
       "packageName": "web-ui",
       "projectFolder": "web-ui",
       "reviewCategory": "production"
+    },
+    {
+      "packageName": "obs-node",
+      "projectFolder": "obs-node",
+      "reviewCategory": "production"
     }
   ]
 }

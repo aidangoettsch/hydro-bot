@@ -24,7 +24,7 @@
     "playwright": "~1.8.0",
     "playwright-video": "~2.4.0",
     "web-ui": "~0.1.0",
-    "prism-media": "~1.2.5"
+    "obs-node": "~1.0.23"
   },
   "devDependencies": {
     "@types/debug": "~4.1.5"

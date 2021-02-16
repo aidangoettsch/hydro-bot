@@ -1,15 +1,15 @@
 import * as os from 'os';
 import * as path from 'path';
 
-let obs: obs.ObsNode;
 let cwd = process.cwd();
+let obsInstance: obs
 const isWindows = os.platform() === "win32";
 try {
     if (isWindows) {
         // for windows, we need set working directory to obs binary path to load obs dependencies correctly.
         process.chdir(path.resolve(__dirname, '../prebuild/obs-studio/bin/64bit'));
     }
-    obs = require('../prebuild/obs-node.node');
+    obsInstance = require('../prebuild/obs-node.node');
 } finally {
     if (isWindows) {
         process.chdir(cwd);
@@ -18,93 +18,110 @@ try {
 
 // set obs studio path before calling any function.
 const obsPath = path.resolve(__dirname, '../prebuild/obs-studio');
-obs.setObsPath(obsPath);
+obsInstance.Studio.startup(obsPath, 'en-US');
 
-declare namespace obs {
+export type ObsData = { [key: string]: any }
 
-    export type RateControl = 'CBR' | 'VBR';
+export interface AudioEncoder {
+    new(encoderId: string, name: string, mixIdx: number, settings: ObsData)
+    updateSettings(settings: ObsData): void
+    use(): void
+}
 
-    export type SourceType = 'Image' | 'MediaSource';
+export interface Output {
+    new(outputId: string, name: string, settings: ObsData)
+    setVideoEncoder(encoder: VideoEncoder): void
+    setAudioEncoder(encoder: AudioEncoder): void
+    useRaw(): void
+    setMixers(mixerMask: number): void
+    setService(service: OutputService): void
+    updateSettings(settings: ObsData): void
+    getSettings(): string
+    start(): void
+    stop(): void
+}
 
-    export type Position = 'top' | 'top-right' | 'right' | 'bottom-right' | 'bottom' | 'bottom-left' | 'left' | 'top-left' | 'center';
+export interface OutputService {
+    new(serviceId: string, name: string, settings: ObsData)
+    updateSettings(settings: ObsData): void
+}
 
-    export type TransitionType = 'cut_transition' | 'fade_transition' | 'swipe_transition' | 'slide_transition';
+export interface Scene {
+    new(name: string)
+    addSource(source: Source): void
+    asSource(): Source
+}
 
-    export interface Scene {
-        id: string;
-        source: Source[];
+export interface Source {
+    new(sourceId: string, name: string, settings: ObsData)
+    updateSettings(settings: ObsData): void
+    getSettings(): string
+    assignOutputChannel(channel: number): void
+}
+
+interface SourceInternal {
+    new(sourceId: string, name: string, settings: ObsData)
+    updateSettings(settings: ObsData): void
+    getSettings(): string
+    assignOutputChannel(channel: number): void
+    startTransition(): void
+}
+
+export interface Studio {
+    startup(obsPath: string, locale: string): void
+    resetVideo(videoSettings: VideoSettings): void
+    resetAudio(audioSettings: AudioSettings): void
+}
+
+export class Transition {
+    private source: SourceInternal
+
+    constructor(sourceId: string, name: string, settings: ObsData) {
+        this.source = new obsInstance.Source(sourceId, name, settings)
     }
 
-    export interface Source {
-        id: string;
-        type: SourceType;
-        url: string;
+    updateSettings(settings: ObsData): void {
+        this.source.updateSettings(settings)
     }
 
-    export interface VideoSettings {
-        baseWidth: number;
-        baseHeight: number;
-        outputWidth: number;
-        outputHeight: number;
-        fpsNum: number;
-        fpsDen: number;
-    }
-
-    export interface AudioSettings {
-        sampleRate: number;
-    }
-
-    export interface VideoDecoderSettings {
-        hardwareEnable: boolean;
-    }
-
-    export interface VideoEncoderSettings {
-        hardwareEnable: boolean;
-        width: number;
-        height: number;
-        bitrateKbps: number;
-        keyintSec: number;
-        rateControl: RateControl;
-        preset: string;
-        profile: string;
-        tune: string;
-        x264opts?: string;
-    }
-
-    export interface AudioEncoderSettings {
-        bitrateKbps: number;
-    }
-
-    export interface OutputSettings {
-        server: string;
-        key: string;
-    }
-
-    export interface Settings {
-        video: VideoSettings;
-        audio: AudioSettings;
-        videoDecoder?: VideoDecoderSettings;
-        videoEncoder?: VideoEncoderSettings;
-        audioEncoder?: AudioEncoderSettings;
-        output?: OutputSettings;
-    }
-
-    export interface ObsNode {
-        setObsPath(obsPath: string): void
-        startup(settings: Settings): void;
-        shutdown(): void;
-        addScene(sceneId: string): string;
-        addSource(sceneId: string, sourceId: string, sourceType: SourceType, sourceUrl: string): void;
-        updateSource(sceneId: string, sourceId: string, sourceUrl: string): void;
-        muteSource(sceneId: string, sourceId: string, mute: boolean): void;
-        restartSource(sceneId: string, sourceId: string);
-        switchToScene(sceneId: string, transitionType: TransitionType, transitionMs: number): void;
-        getScenes(): Scene[];
-        createDisplay(name: string, parentWindow: Buffer, scaleFactor: number, sourceId: string);
-        destroyDisplay(name: string);
-        moveDisplay(name: string, x: number, y: number, width: number, height: number);
-        addDSK(id: string, position: Position, url: string, left: number, top: number, width: number, height: number): void;
+    startTransition(): void {
+        this.source.startTransition()
     }
 }
 
-export = obs;
+export interface VideoEncoder {
+    new(encoderId: string, name: string, settings: ObsData)
+    updateSettings(settings: ObsData)
+    use()
+}
+
+export interface VideoSettings {
+    baseWidth: number;
+    baseHeight: number;
+    outputWidth: number;
+    outputHeight: number;
+    fps: number;
+}
+
+export interface AudioSettings {
+    sampleRate: number;
+    speakers: number;
+}
+
+declare interface obs {
+    AudioEncoder: AudioEncoder
+    Output: Output
+    OutputService: OutputService
+    Scene: Scene
+    Source: Source
+    Studio: Studio
+    VideoEncoder: VideoEncoder
+}
+
+export const AudioEncoder = obsInstance.AudioEncoder
+export const Output = obsInstance.Output
+export const OutputService = obsInstance.OutputService
+export const Scene = obsInstance.Scene
+export const Source = obsInstance.Source
+export const Studio = obsInstance.Studio
+export const VideoEncoder = obsInstance.VideoEncoder

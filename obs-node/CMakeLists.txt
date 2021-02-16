@@ -20,31 +20,16 @@ endif()
 
 # Build
 SET(OBS_NODE_SOURCES
-    src/cpp/main.cpp
-    src/cpp/utils.h
-    src/cpp/settings.h
-    src/cpp/settings.cpp
-    src/cpp/studio.h
-    src/cpp/studio.cpp
-    src/cpp/source.h
-    src/cpp/source.cpp
-    src/cpp/scene.h
-    src/cpp/scene.cpp
-    src/cpp/display.h
-    src/cpp/display.cpp
-    src/cpp/dsk.h
-    src/cpp/dsk.cpp
-    src/cpp/platform/platform.h)
-
-if (WIN32)
-    LIST(APPEND OBS_NODE_SOURCES
-        src/cpp/platform/windows.cpp
-    )
-elseif(APPLE)
-    LIST(APPEND OBS_NODE_SOURCES
-            src/cpp/platform/osx.mm
-    )
-endif()
+    src/cpp/Studio.cpp
+    src/cpp/Settings.cpp
+    src/cpp/Scene.cpp
+    src/cpp/SceneItem.cpp
+    src/cpp/Source.cpp
+    src/cpp/AudioEncoder.cpp
+    src/cpp/VideoEncoder.cpp
+    src/cpp/Output.cpp
+    src/cpp/OutputService.cpp
+    src/cpp/main.cpp src/cpp/StreamOutputInternal.cpp src/cpp/StreamOutputInternal.h)
 
 add_library(${PROJECT_NAME} SHARED ${OBS_NODE_SOURCES} ${CMAKE_JS_SRC})
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
