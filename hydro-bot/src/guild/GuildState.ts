@@ -11,7 +11,11 @@ import PuppeteerCapture from "../ui/PuppeteerCapture";
 import debugBase from "debug";
 import {PassThrough} from "stream";
 import ChildProcess from 'child_process';
-import obs, {Output, Scene, Source, Studio} from 'obs-node'
+import obs, {AudioEncoder, Output, Scene, Source, Studio, VideoEncoder} from 'obs-node'
+import {StreamOutput} from "obs-node/dist";
+import segfaultHandler from "segfault-handler";
+
+segfaultHandler.registerHandler("crash.log")
 
 const debugVideo = debugBase('hydro-bot:video')
 const IMAGE_EXTS = ['.jpg', '.png', '.jpeg'];
@@ -72,7 +76,7 @@ interface VoiceState {
   voiceChannel: VoiceChannel
   logChannel: TextChannel
   audioDispatcher: StreamDispatcher
-  output: Output
+  output: StreamOutput
   videoScene: Scene
   videoSource: Source,
   audioSource: Source,
@@ -85,8 +89,6 @@ export default class GuildState {
   private voiceState: VoiceState | null = null
   private puppeteerCapture = new PuppeteerCapture(this)
 
-  private videoStream = new PassThrough()
-  private audioStream = new PassThrough()
   private ffmpeg?: ChildProcess.ChildProcess
 
   constructor (private bot: Bot, public id: string) {
@@ -134,7 +136,7 @@ export default class GuildState {
       close_when_inactive: false,
       restart_on_activate: false,
       hw_decode: true,
-      input: "https://r3---sn-8xgp1vo-p5qs.googlevideo.com/videoplayback?expire=1613435073&ei=YLwqYKuGPLbmhwbH16qQCg&ip=108.45.29.59&id=o-ADjGDtoh5Qhs80qlHGpBRNcqWjn_5KyQJnNanKKC50W6&itag=271&aitags=133%2C134%2C135%2C136%2C137%2C160%2C242%2C243%2C244%2C247%2C248%2C271%2C278%2C313%2C394%2C395%2C396%2C397%2C398%2C399%2C400%2C401&source=youtube&requiressl=yes&mh=LM&mm=31%2C29&mn=sn-8xgp1vo-p5qs%2Csn-p5qlsnd6&ms=au%2Crdu&mv=m&mvi=3&pl=16&initcwndbps=2196250&vprv=1&mime=video%2Fwebm&ns=zWcCBGncbBetcdQMRdRcdB0F&gir=yes&clen=274172482&dur=666.065&lmt=1612491224164985&mt=1613413243&fvip=3&keepalive=yes&c=WEB&txp=5532432&n=UWYfFoVNEb_NVTZqIb&sparams=expire%2Cei%2Cip%2Cid%2Caitags%2Csource%2Crequiressl%2Cvprv%2Cmime%2Cns%2Cgir%2Cclen%2Cdur%2Clmt&sig=AOq0QJ8wRgIhAN_G9ShJnqiOd731nNoQ8LXXGBKgAzgavTjV_h9GVQ1VAiEA_feTkRuYwHJArZV1vYxm7JV8DuqYLdphl307zDDcmAY%3D&lsparams=mh%2Cmm%2Cmn%2Cms%2Cmv%2Cmvi%2Cpl%2Cinitcwndbps&lsig=AG3C_xAwRAIgLvzkVdCixUcwKtBIEt2EvVmNo9nniSn0KMjTD0U1e0sCIDOLAMP2PAx0INBMb5xRxpYfJQhMQL90AQlCXvdWBKXo&ratebypass=yes",
+      input: "",
       is_local_file: false,
       seekable: true
     })
@@ -158,26 +160,24 @@ export default class GuildState {
     videoScene.addSource(textTest)
     videoScene.asSource().assignOutputChannel(0)
 
-    const output = new Output("ffmpeg_output", "ffmpeg", {
-      url: `rtp://127.0.0.1:${port}/?pkt_size=${MTU}`,
-      video_encoder: "h264_nvenc",
-      video_bitrate: 4 * 1000,
-      format_name: "rtp",
-      video_settings: FFMPEG_CONFIG.H264_NVENC.args.join(' '),
+    const audioEncoder = new AudioEncoder("ffmpeg_opus", "Opus Encoder", 0, {
+      "bitrate": 64
     })
 
-    const audioOutput = new Output("ffmpeg_output", "ffmpeg audio", {
-      url: `rtp://127.0.0.1:${port + 2}/?pkt_size=${MTU}`,
-      audio_encoder: "libbopus",
-      format_name: "rtp",
-      audio_settings: FFMPEG_CONFIG.opus.args.join(' '),
+    const videoEncoder = new VideoEncoder("ffmpeg_nvenc", "NVENC Encoder",  {
+      "bitrate": 4000,
+      "profile": "baseline"
     })
 
-    // audioOutput.setMixers(0xffffffffffffffff)
-    output.useRaw()
-    audioOutput.useRaw()
+    const output = new StreamOutput("stream output")
+
+    output.on('data', (d) => {
+      console.log(d)
+    })
+
+    output.setAudioEncoder(audioEncoder)
+    output.setVideoEncoder(videoEncoder)
     output.start()
-    audioOutput.start()
     debugVideo(`obs started for guild ${this.id}`)
 
     this.voiceState = {

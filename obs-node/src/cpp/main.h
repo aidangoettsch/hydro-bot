@@ -8,6 +8,7 @@
 #include "SceneItem.h"
 #include "Source.h"
 #include "Scene.h"
+#include "StreamOutput.h"
 #include "Studio.h"
 #include "VideoEncoder.h"
 

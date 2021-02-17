@@ -40,10 +40,12 @@ dependencies:
   np: 6.5.0
   playwright-core: 1.8.0
   prettier: 2.2.1
+  prism-media: 1.2.5_@discordjs+opus@0.4.0
   react: 17.0.1
   react-dom: 17.0.1_react@17.0.1
   react-scripts: 4.0.2_react@17.0.1+ts-node@9.1.1
   rimraf: 3.0.2
+  segfault-handler: 1.3.0
   time-stamp: 2.2.0
   ts-jest: 26.5.0
   ts-node: 9.1.1
@@ -11316,7 +11318,6 @@ packages:
       integrity: sha512-nnbWWOkoWyUsTjKrhgD0dcz22mdkSnpYqbEjIm2nhwhuxlSkpywJmBo8h0ZqJdkp73mb90SssHkN4rsRaBAfAA==
   /nan/2.14.2:
     dev: false
-    optional: true
     resolution:
       integrity: sha512-M2ufzIiINKCuDfBSAUr1vWQ+vuVcA9kqx8JJUsbQi6yf1uGRyb7HfpdfUr5qLXf3B/t8dPvcjhKMmlfnP47EzQ==
   /nanoid/3.1.20:
@@ -14523,6 +14524,14 @@ packages:
       node: '>=8'
     resolution:
       integrity: sha512-g3WxHrqSWCZHGHlSrF51VXFdjImhwvH8ZO/pryFH56Qi0cDsZfylQa/t0jCzVQFNbNvM00HfHjkDPEuarKDSWQ==
+  /segfault-handler/1.3.0:
+    dependencies:
+      bindings: 1.5.0
+      nan: 2.14.2
+    dev: false
+    requiresBuild: true
+    resolution:
+      integrity: sha512-p7kVHo+4uoYkr0jmIiTBthwV5L2qmWtben/KDunDZ834mbos+tY+iO0//HpAJpOFSQZZ+wxKWuRo4DxV02B7Lg==
   /select-hose/2.0.0:
     dev: false
     resolution:
@@ -17387,6 +17396,7 @@ packages:
       prism-media: 1.2.5_@discordjs+opus@0.4.0
       puppeteer: 7.0.1
       puppeteer-stream: 1.0.7
+      segfault-handler: 1.3.0
       time-stamp: 2.2.0
       youtube-dl: 3.1.0
       ytdl: 1.4.1
@@ -17394,7 +17404,7 @@ packages:
     dev: false
     name: '@rush-temp/hydro-bot'
     resolution:
-      integrity: sha512-XspbdkNeSQrB3pFMBnPn6np8fmcGU36tA27Bebps75x/0l1RkSQonf2cBfAhD9II9ZHLckwVE17d0UXwGP2QIw==
+      integrity: sha512-nib0MRX6GjDXgiUNMlGFczNkQKnwE3/N+3i6Uoddjseof0xl8n9Ic+xSaNAQ5s/MZNUb3+9P4R+Wj2W7okIDsg==
       tarball: file:projects/hydro-bot.tgz
     version: 0.0.0
   file:projects/obs-node.tgz:
@@ -17409,7 +17419,7 @@ packages:
     dev: false
     name: '@rush-temp/obs-node'
     resolution:
-      integrity: sha512-HVnhh89K5E9l6a0wdccGihBNoG0mbJgd4jE8WoyKga+g7FxOHIsxyPikCp1Iam8y+h7ehOcC6wRH1ZSEhYEd1A==
+      integrity: sha512-DoJBhbb2a+YDpYAJ9AXCPqhIDPHeEAsc3GFHUSRhwaFWAhlaN6JzKgEo21yywf+bByNKa56IvT0si8OPs4rcdA==
       tarball: file:projects/obs-node.tgz
     version: 0.0.0
   file:projects/playwright-video.tgz_ts-node@9.1.1:
@@ -17523,15 +17533,17 @@ specifiers:
   husky: ^4.3.0
   json-filter-loader: ^1.0.0
   lint-staged: ^10.4.2
-  node-addon-api: ^3.0.2
+  node-addon-api: ^3.1.0
   node-fetch: ^2.6.1
   np: ^6.5.0
   playwright-core: ^1.4.1
   prettier: ^2.1.2
+  prism-media: ^1.2.2
   react: ^17.0.1
   react-dom: ^17.0.1
   react-scripts: 4.0.2
   rimraf: ^3.0.2
+  segfault-handler: ~1.3.0
   time-stamp: ^2.2.0
   ts-jest: ^26.4.0
   ts-node: ^9.0.0

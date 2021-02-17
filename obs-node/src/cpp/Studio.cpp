@@ -1,5 +1,6 @@
 #include "Studio.h"
 #include "Settings.h"
+#include "StreamOutputInternal.h"
 #include "utils.h"
 #include <obs.h>
 
@@ -65,6 +66,7 @@ Napi::Value Studio::Startup(const Napi::CallbackInfo &info) {
   LoadModule("rtmp-services");
   LoadModule("text-freetype2");
   LoadModule("vlc-video");
+  StreamOutputInternal::LoadOutput();
 
   obs_post_load_modules();
 

@@ -1,5 +1,6 @@
 import * as os from 'os';
 import * as path from 'path';
+import {Readable} from "stream";
 
 let cwd = process.cwd();
 let obsInstance: obs
@@ -26,6 +27,22 @@ export interface AudioEncoder {
     new(encoderId: string, name: string, mixIdx: number, settings: ObsData)
     updateSettings(settings: ObsData): void
     use(): void
+}
+
+interface StreamOutputInternal {
+    new(name: string, settings: {
+        onData: (data: Buffer) => void,
+        onStop: () => void
+    })
+    setVideoEncoder(encoder: VideoEncoder): void
+    setAudioEncoder(encoder: AudioEncoder): void
+    setMixer(mixer: number): void
+    updateSettings(settings: {
+        onData: (data: Buffer) => void,
+        onStop: () => void
+    }): void
+    start(): void
+    stop(): void
 }
 
 export interface Output {
@@ -114,8 +131,57 @@ declare interface obs {
     OutputService: OutputService
     Scene: Scene
     Source: Source
-    Studio: Studio
+    Studio: Studio,
+    StreamOutput: StreamOutputInternal,
     VideoEncoder: VideoEncoder
+}
+
+export class StreamOutput extends Readable {
+    private internalOutput: StreamOutputInternal
+
+    constructor(name: string) {
+        super();
+        this.internalOutput = new obsInstance.StreamOutput(name, {
+            onData: this.onData,
+            onStop: this.onStop,
+        })
+    }
+
+    _read(): void {}
+    _destroy(): void {}
+
+    onData(data: Buffer): void {
+        this.push(data)
+    }
+
+    onStop(): void {}
+
+    setVideoEncoder(encoder: VideoEncoder): void {
+        this.internalOutput.setVideoEncoder(encoder)
+    }
+
+    setAudioEncoder(encoder: AudioEncoder): void {
+        this.internalOutput.setAudioEncoder(encoder)
+    }
+
+    setMixer(mixer: number): void {
+        this.internalOutput.setMixer(mixer)
+    }
+
+    updateSettings(settings: {
+        onData: (data: Buffer) => void,
+        onStop: () => void
+    }): void {
+        this.internalOutput.updateSettings(settings)
+    }
+
+    start(): void{
+        this.internalOutput.start()
+    }
+
+    stop(): void {
+        this.internalOutput.stop()
+    }
 }
 
 export const AudioEncoder = obsInstance.AudioEncoder

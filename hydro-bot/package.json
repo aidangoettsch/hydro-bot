@@ -24,7 +24,8 @@
     "playwright": "~1.8.0",
     "playwright-video": "~2.4.0",
     "web-ui": "~0.1.0",
-    "obs-node": "~1.0.23"
+    "obs-node": "~1.0.23",
+    "segfault-handler": "~1.3.0"
   },
   "devDependencies": {
     "@types/debug": "~4.1.5"

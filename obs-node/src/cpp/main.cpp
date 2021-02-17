@@ -8,6 +8,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
   SceneItem::Init(env, exports);
   Source::Init(env, exports);
   Scene::Init(env, exports);
+  StreamOutput::Init(env, exports);
   Studio::Init(env, exports);
   VideoEncoder::Init(env, exports);
 

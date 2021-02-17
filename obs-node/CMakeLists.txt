@@ -29,7 +29,9 @@ SET(OBS_NODE_SOURCES
     src/cpp/VideoEncoder.cpp
     src/cpp/Output.cpp
     src/cpp/OutputService.cpp
-    src/cpp/main.cpp src/cpp/StreamOutputInternal.cpp src/cpp/StreamOutputInternal.h)
+    src/cpp/main.cpp
+    src/cpp/StreamOutputInternal.cpp
+    src/cpp/StreamOutput.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${OBS_NODE_SOURCES} ${CMAKE_JS_SRC})
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
