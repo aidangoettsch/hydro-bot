@@ -6,6 +6,8 @@
 #include "AudioEncoder.h"
 #include "VideoEncoder.h"
 
+using Context = Napi::Reference<Napi::Value>;
+
 class StreamOutput : public Napi::ObjectWrap<StreamOutput> {
 public:
   explicit StreamOutput(const Napi::CallbackInfo &info);
@@ -25,5 +27,7 @@ public:
 private:
   std::string name;
   obs_output_t *outputReference;
+  Napi::ThreadSafeFunction onDataRef;
+  Napi::ThreadSafeFunction onStopRef;
 };
 

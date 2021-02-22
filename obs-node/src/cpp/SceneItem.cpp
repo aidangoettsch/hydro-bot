@@ -6,6 +6,10 @@ SceneItem::SceneItem(const Napi::CallbackInfo &info)
   memset(&transformInfo, 0, sizeof transformInfo);
 }
 
+SceneItem::~SceneItem() {
+  obs_sceneitem_release(sceneItemReference);
+}
+
 Napi::Value SceneItem::SetTransformInfo(const Napi::CallbackInfo &info) {
   Napi::Env env = info.Env();
 
@@ -63,10 +67,19 @@ Napi::Value SceneItem::GetTransformInfo(const Napi::CallbackInfo &info) {
   return reinterpret_cast<Napi::Value &&>(res);
 }
 
+Napi::Value SceneItem::Remove(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+
+  obs_sceneitem_remove(sceneItemReference);
+
+  return env.Null();
+}
+
 Napi::Function SceneItem::GetClass(Napi::Env env) {
   return DefineClass(env, "SceneItem", {
     SceneItem::InstanceMethod("setTransformInfo", &SceneItem::SetTransformInfo),
     SceneItem::InstanceMethod("getTransformInfo", &SceneItem::GetTransformInfo),
+    SceneItem::InstanceMethod("remove", &SceneItem::Remove),
   });
 }
 

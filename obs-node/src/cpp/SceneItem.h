@@ -6,9 +6,11 @@
 class SceneItem: public Napi::ObjectWrap<SceneItem> {
 public:
   explicit SceneItem(const Napi::CallbackInfo &info);
+  ~SceneItem() override;
 
   Napi::Value SetTransformInfo(const Napi::CallbackInfo &info);
   Napi::Value GetTransformInfo(const Napi::CallbackInfo &info);
+  Napi::Value Remove(const Napi::CallbackInfo &info);
 
   static Napi::Function GetClass(Napi::Env env);
   static Napi::Object Init(Napi::Env env, Napi::Object exports);

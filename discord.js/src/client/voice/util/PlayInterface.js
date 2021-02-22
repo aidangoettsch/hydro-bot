@@ -93,8 +93,12 @@ class PlayInterface {
     return this.videoPlayer.manualPlayVideo(options);
   }
 
+  playRawVideo(videoStream, audioStream, options = {}) {
+    return this.videoPlayer.playRawVideo(videoStream, audioStream, options)
+  }
+
   static applyToClass(structure) {
-    for (const prop of ['play', 'playVideo', 'manualPlayVideo']) {
+    for (const prop of ['play', 'playVideo', 'manualPlayVideo', 'playRawVideo']) {
       Object.defineProperty(structure.prototype, prop, Object.getOwnPropertyDescriptor(PlayInterface.prototype, prop));
     }
   }

@@ -1,13 +1,20 @@
 #pragma once
 #include <napi.h>
 #include <obs.h>
+#include "StreamOutput.h"
 
 class StreamOutputInternal {
 public:
   static void LoadOutput();
 
 private:
-  explicit StreamOutputInternal(obs_output_t *output, Napi::FunctionReference* onData, Napi::FunctionReference* onStop, Napi::Env* env);
+  explicit StreamOutputInternal(
+      obs_output_t *output,
+      Napi::ThreadSafeFunction* onData,
+      Napi::ThreadSafeFunction* onStop,
+      Napi::ObjectReference* jsThis,
+      Napi::AsyncContext* asyncContext
+    );
 
   static const char* GetName([[maybe_unused]] void* typeData);
   static void* Create(obs_data_t *settings, obs_output_t *output);
@@ -28,12 +35,12 @@ private:
     .destroy = &Destroy,
     .start = &Start,
     .stop = &Stop,
-    .encoded_packet = &OnPacket,
-    .update = &Update
+    .encoded_packet = &OnPacket
   };
 
-  Napi::FunctionReference* onData;
-  Napi::FunctionReference* onStop;
-  Napi::Env* env;
+  Napi::ThreadSafeFunction* onData;
+  Napi::ThreadSafeFunction* onStop;
+  Napi::ObjectReference* jsThis;
+  Napi::AsyncContext* asyncContext;
   obs_output_t *output;
 };

@@ -1,6 +1,8 @@
 import * as os from 'os';
 import * as path from 'path';
 import {Readable} from "stream";
+import EventEmitter = require("events");
+import {sign} from "crypto";
 
 let cwd = process.cwd();
 let obsInstance: obs
@@ -31,14 +33,14 @@ export interface AudioEncoder {
 
 interface StreamOutputInternal {
     new(name: string, settings: {
-        onData: (data: Buffer) => void,
+        onData: (data: ArrayBuffer, type: number) => void,
         onStop: () => void
     })
     setVideoEncoder(encoder: VideoEncoder): void
     setAudioEncoder(encoder: AudioEncoder): void
     setMixer(mixer: number): void
     updateSettings(settings: {
-        onData: (data: Buffer) => void,
+        onData: (data: ArrayBuffer, type: number) => void,
         onStop: () => void
     }): void
     start(): void
@@ -65,19 +67,31 @@ export interface OutputService {
 
 export interface Scene {
     new(name: string)
-    addSource(source: Source): void
+    addSource(source: Source): SceneItem
     asSource(): Source
 }
 
-export interface Source {
-    new(sourceId: string, name: string, settings: ObsData)
-    updateSettings(settings: ObsData): void
-    getSettings(): string
-    assignOutputChannel(channel: number): void
+export interface SceneItem {
+    setTransformInfo(info: TransformInfo): void
+    getTransformInfo(): TransformInfo
+    remove(): void
+}
+
+export interface TransformInfo {
+    posX: number
+    posY: number
+    rot: number
+    scaleX: number
+    scaleY: number
+    alignment: number
+    boundsType: number
+    boundsAlignment: number
+    boundsX: number
+    boundsY: number
 }
 
 interface SourceInternal {
-    new(sourceId: string, name: string, settings: ObsData)
+    new(sourceId: string, name: string, signalListener: (signal: string) => void, settings: ObsData | undefined)
     updateSettings(settings: ObsData): void
     getSettings(): string
     assignOutputChannel(channel: number): void
@@ -88,22 +102,6 @@ export interface Studio {
     startup(obsPath: string, locale: string): void
     resetVideo(videoSettings: VideoSettings): void
     resetAudio(audioSettings: AudioSettings): void
-}
-
-export class Transition {
-    private source: SourceInternal
-
-    constructor(sourceId: string, name: string, settings: ObsData) {
-        this.source = new obsInstance.Source(sourceId, name, settings)
-    }
-
-    updateSettings(settings: ObsData): void {
-        this.source.updateSettings(settings)
-    }
-
-    startTransition(): void {
-        this.source.startTransition()
-    }
 }
 
 export interface VideoEncoder {
@@ -130,28 +128,34 @@ declare interface obs {
     Output: Output
     OutputService: OutputService
     Scene: Scene
-    Source: Source
+    Source: SourceInternal
     Studio: Studio,
     StreamOutput: StreamOutputInternal,
     VideoEncoder: VideoEncoder
 }
 
-export class StreamOutput extends Readable {
+export class StreamOutput {
     private internalOutput: StreamOutputInternal
+    public videoStream = new Readable({
+        read() {}
+    })
+    public audioStream = new Readable({
+        read() {}
+    })
 
     constructor(name: string) {
-        super();
         this.internalOutput = new obsInstance.StreamOutput(name, {
-            onData: this.onData,
-            onStop: this.onStop,
+            onData: this.onData.bind(this),
+            onStop: this.onStop.bind(this),
         })
     }
 
     _read(): void {}
     _destroy(): void {}
 
-    onData(data: Buffer): void {
-        this.push(data)
+    onData(data: ArrayBuffer, type: number): void {
+        if (type === 0) this.audioStream.push(Buffer.from(data))
+        else this.videoStream.push(Buffer.from(data))
     }
 
     onStop(): void {}
@@ -169,13 +173,13 @@ export class StreamOutput extends Readable {
     }
 
     updateSettings(settings: {
-        onData: (data: Buffer) => void,
+        onData: (data: ArrayBuffer) => void,
         onStop: () => void
     }): void {
         this.internalOutput.updateSettings(settings)
     }
 
-    start(): void{
+    start(): void {
         this.internalOutput.start()
     }
 
@@ -184,10 +188,38 @@ export class StreamOutput extends Readable {
     }
 }
 
+export class Source extends EventEmitter {
+    protected source: SourceInternal
+
+    constructor(sourceId: string, name: string, settings: ObsData) {
+        super();
+        this.source = new obsInstance.Source(sourceId, name, (signal: string) => {
+            console.log(`[${name}] ${signal}`)
+            this.emit(signal)
+        }, settings)
+    }
+
+    updateSettings(settings: ObsData): void {
+        this.source.updateSettings(settings)
+    }
+    getSettings(): ObsData {
+        return JSON.parse(this.source.getSettings())
+    }
+
+    assignOutputChannel(channel: number): void {
+        this.source.assignOutputChannel(channel)
+    }
+}
+
+
+export class Transition extends Source {
+    startTransition(): void {
+        this.source.startTransition()
+    }
+}
 export const AudioEncoder = obsInstance.AudioEncoder
 export const Output = obsInstance.Output
 export const OutputService = obsInstance.OutputService
 export const Scene = obsInstance.Scene
-export const Source = obsInstance.Source
 export const Studio = obsInstance.Studio
 export const VideoEncoder = obsInstance.VideoEncoder

@@ -1662,6 +1662,10 @@ declare module 'discord.js' {
       video: VideoDispatcher,
       audio: StreamDispatcher
     };
+    public playRawVideo(videoStream: Readable, ideoStream: Readable, options?: { volume: number }): {
+      video: VideoDispatcher
+      audio: StreamDispatcher
+    };
     public setSpeaking(value: BitFieldResolvable<SpeakingString>): void;
 
     public on(event: 'authenticated' | 'closing' | 'newSession' | 'ready' | 'reconnecting', listener: () => void): this;

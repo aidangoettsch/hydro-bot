@@ -12,7 +12,7 @@ import debugBase from "debug";
 import {PassThrough} from "stream";
 import ChildProcess from 'child_process';
 import obs, {AudioEncoder, Output, Scene, Source, Studio, VideoEncoder} from 'obs-node'
-import {StreamOutput} from "obs-node/dist";
+import {SceneItem, StreamOutput} from "obs-node/dist";
 import segfaultHandler from "segfault-handler";
 
 segfaultHandler.registerHandler("crash.log")
@@ -78,8 +78,8 @@ interface VoiceState {
   audioDispatcher: StreamDispatcher
   output: StreamOutput
   videoScene: Scene
-  videoSource: Source,
-  audioSource: Source,
+  sceneItems: { [name: string]: SceneItem}
+  sources: { [name: string]: Source}
 }
 
 export default class GuildState {
@@ -87,7 +87,6 @@ export default class GuildState {
   private readonly configPath: string;
 
   private voiceState: VoiceState | null = null
-  private puppeteerCapture = new PuppeteerCapture(this)
 
   private ffmpeg?: ChildProcess.ChildProcess
 
@@ -117,8 +116,6 @@ export default class GuildState {
 
     const voiceConnection  = await videoClientChannel.join(true)
 
-    const {port, audio: audioDispatcher} = await voiceConnection.manualPlayVideo()
-
     Studio.resetVideo({
       baseWidth: 1920,
       baseHeight: 1080,
@@ -132,32 +129,35 @@ export default class GuildState {
       speakers: 1,
     })
 
-    const videoSource = new Source("ffmpeg_source", "Video", {
-      close_when_inactive: false,
-      restart_on_activate: false,
-      hw_decode: true,
-      input: "",
-      is_local_file: false,
-      seekable: true
-    })
-
-    const audioSource = new Source("ffmpeg_source", "Audio", {
-      close_when_inactive: false,
-      restart_on_activate: false,
-      hw_decode: false,
-      input: "",
-      is_local_file: false,
-      seekable: true
-    })
-
-    const textTest = new Source("text_ft2_source", "Video", {
-      text: "pog"
-    })
+    const sources = {
+      video: new Source("ffmpeg_source", "Video", {
+        close_when_inactive: false,
+        restart_on_activate: false,
+        hw_decode: true,
+        input: "",
+        is_local_file: false,
+        seekable: true
+      }),
+      audio: new Source("ffmpeg_source", "Audio", {
+        close_when_inactive: false,
+        restart_on_activate: false,
+        hw_decode: false,
+        input: "",
+        is_local_file: false,
+        seekable: true
+      }),
+      text: new Source("text_ft2_source", "pog", {
+        text: "pog"
+      })
+    }
 
     const videoScene = new Scene("Video Scene")
-    videoScene.addSource(videoSource)
-    videoScene.addSource(audioSource)
-    videoScene.addSource(textTest)
+
+    const sceneItems = {
+      video: videoScene.addSource(sources.video),
+      audio: videoScene.addSource(sources.audio),
+      text: videoScene.addSource(sources.text),
+    }
     videoScene.asSource().assignOutputChannel(0)
 
     const audioEncoder = new AudioEncoder("ffmpeg_opus", "Opus Encoder", 0, {
@@ -171,13 +171,19 @@ export default class GuildState {
 
     const output = new StreamOutput("stream output")
 
-    output.on('data', (d) => {
-      console.log(d)
-    })
+    // output.videoStream.on('data', (d) => {
+    //   debugVideo(`video ${d.toString('hex')}`)
+    // })
+
+    // output.audioStream.on('data', (d) => {
+    //   debugVideo(`audio ${util.inspect(d)}`)
+    // })
+    const {audio: audioDispatcher} = await voiceConnection.playRawVideo(output.videoStream, output.audioStream, {volume: this.config.volume})
 
     output.setAudioEncoder(audioEncoder)
     output.setVideoEncoder(videoEncoder)
     output.start()
+
     debugVideo(`obs started for guild ${this.id}`)
 
     this.voiceState = {
@@ -189,8 +195,8 @@ export default class GuildState {
       playing: null,
       output,
       videoScene,
-      videoSource,
-      audioSource
+      sceneItems,
+      sources
     }
 
     await logChannel.send(this.bot.embedFactory.info(
@@ -246,7 +252,7 @@ export default class GuildState {
     ]
 
     const url = resources[0].resource
-    this.voiceState.videoSource.updateSettings({
+    this.voiceState.sources.video.updateSettings({
       close_when_inactive: true,
       hw_decode: false,
       input: url,
@@ -254,7 +260,7 @@ export default class GuildState {
       seekable: true
     })
     if (resources[1]) {
-      this.voiceState.audioSource.updateSettings({
+      this.voiceState.sources.audio.updateSettings({
         close_when_inactive: true,
         hw_decode: false,
         input: resources[1].resource,
@@ -263,18 +269,25 @@ export default class GuildState {
       })
     }
 
+    this.voiceState.sources.video.on('media_started', () => {
+      console.log(this.voiceState?.sceneItems.video.getTransformInfo())
+    })
+
     await this.voiceState.logChannel.send(this.bot.embedFactory.mediaInfo(media))
   }
 
   leaveVoice(): void {
     if (!this.voiceState) throw new Error("Not connected to a voice channel!")
-    this.voiceState.voiceConnection.disconnect()
-    this.puppeteerCapture.destroy()
+    this.voiceState.output.stop()
 
-    if (this.voiceState.playing) {
-      this.voiceState.audioDispatcher.removeAllListeners('finish')
+    for (const item in this.voiceState.sceneItems) {
+      this.voiceState.sceneItems[item].remove()
     }
 
+    this.voiceState.voiceConnection.disconnect()
+
+    this.voiceState.sceneItems = {}
+    this.voiceState.sources = {}
     this.voiceState = null
   }
 

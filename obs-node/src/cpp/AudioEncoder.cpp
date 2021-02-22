@@ -44,11 +44,12 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo &info) : ObjectWrap(info) {
     return;
   }
 
+  obs_encoder_set_audio(encoderReference, obs_get_audio());
   obs_encoder_update(encoderReference, settings);
 }
 
 AudioEncoder::~AudioEncoder() {
-  obs_encoder_release(encoderReference);
+  if (encoderReference != nullptr) obs_encoder_release(encoderReference);
 }
 
 Napi::Value AudioEncoder::UpdateSettings(const Napi::CallbackInfo &info) {
@@ -90,4 +91,3 @@ Napi::Object AudioEncoder::Init(Napi::Env env, Napi::Object exports) {
   exports.Set(Napi::String::New(env, "AudioEncoder"), AudioEncoder::GetClass(env));
   return exports;
 }
-

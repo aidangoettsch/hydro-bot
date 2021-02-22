@@ -32,11 +32,13 @@ Scene::Scene(const Napi::CallbackInfo &info): Napi::ObjectWrap<Scene>(info) {
         .ThrowAsJavaScriptException();
     return;
   }
+
+  obs_source_addref(sourceReference);
 }
 
 Scene::~Scene() {
-  obs_scene_release(sceneReference);
-  obs_source_release(sourceReference);
+  if (sourceReference != nullptr) obs_source_release(sourceReference);
+  if (sceneReference != nullptr) obs_scene_release(sceneReference);
 }
 
 Napi::Value Scene::AddSource(const Napi::CallbackInfo &info) {
@@ -55,9 +57,10 @@ Napi::Value Scene::AddSource(const Napi::CallbackInfo &info) {
   }
 
   try {
-    Source *source = Source::Unwrap(info[0].ToObject());
+    Source *source = Source::Unwrap(info[0].ToObject().Get("source").ToObject());
 
     obs_sceneitem_t *sceneItem = obs_scene_add(sceneReference, source->sourceReference);
+    obs_sceneitem_addref(sceneItem);
 
     if (sceneItem == nullptr) {
       Napi::TypeError::New(env, "Could not add source to scene")
@@ -87,6 +90,7 @@ Napi::Value Scene::AsSource(const Napi::CallbackInfo &info) {
 
   Source *sourceObject = Source::Unwrap(napiSource);
   sourceObject->sourceReference = sourceReference;
+  obs_source_addref(sourceReference);
 
   return reinterpret_cast<Napi::Value &&>(napiSource);
 }

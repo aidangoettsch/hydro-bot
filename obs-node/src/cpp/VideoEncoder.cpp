@@ -30,6 +30,7 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo &info) : ObjectWrap(info) {
   }
 
   encoderReference = obs_video_encoder_create(encoderId.c_str(), name.c_str(), settings, nullptr);
+  obs_encoder_set_video(encoderReference, obs_get_video());
 
   if (encoderReference == nullptr) {
     Napi::TypeError::New(env, "Could not create encoder object")
@@ -41,7 +42,7 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo &info) : ObjectWrap(info) {
 }
 
 VideoEncoder::~VideoEncoder() {
-  obs_encoder_release(encoderReference);
+  if (encoderReference != nullptr) obs_encoder_release(encoderReference);
 }
 
 Napi::Value VideoEncoder::UpdateSettings(const Napi::CallbackInfo &info) {

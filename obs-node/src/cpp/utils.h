@@ -78,3 +78,8 @@ inline obs_data_array_t* ArrayFromObject(Napi::Env env, Napi::Array array, obs_d
 
   return data;
 }
+
+struct signal {
+  const char* name;
+  calldata_t* data;
+};

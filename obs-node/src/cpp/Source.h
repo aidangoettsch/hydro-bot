@@ -19,6 +19,8 @@ public:
   obs_source_t *sourceReference;
 
 private:
+  Napi::ThreadSafeFunction signalHandler;
+  signal_handler_t* sourceSignalHandler;
   std::string sourceType;
   std::string name;
 };

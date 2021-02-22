@@ -45,7 +45,7 @@ Output::Output(const Napi::CallbackInfo &info) : ObjectWrap(info) {
 }
 
 Output::~Output() {
-  obs_output_release(outputReference);
+  if (outputReference != nullptr) obs_output_release(outputReference);
 }
 
 Napi::Value Output::SetVideoEncoder(const Napi::CallbackInfo &info) {

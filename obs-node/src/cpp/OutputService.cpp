@@ -41,7 +41,7 @@ OutputService::OutputService(const Napi::CallbackInfo &info)
 }
 
 OutputService::~OutputService() {
-  obs_service_release(serviceReference);
+  if (serviceReference != nullptr) obs_service_release(serviceReference);
 }
 
 Napi::Value OutputService::UpdateSettings(const Napi::CallbackInfo &info) {

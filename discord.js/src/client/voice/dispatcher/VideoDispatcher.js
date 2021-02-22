@@ -1,6 +1,7 @@
 'use strict';
 
 const { Writable } = require('stream');
+const util = require('util');
 const secretbox = require('../util/Secretbox');
 
 const MAX_NONCE_SIZE = 2 ** 32 - 1;
@@ -34,6 +35,8 @@ class VideoDispatcher extends Writable {
     this._nonce = 0;
     this._nonceBuffer = Buffer.alloc(24);
 
+    this._nalBuffer = [];
+
     this.streamingData = {
       channels: 2,
       sequence: 0,
@@ -61,6 +64,26 @@ class VideoDispatcher extends Writable {
     this.on('error', () => streamError());
   }
 
+  _parseRTPPacket(packet) {
+    const firstByte = packet[0];
+
+    const ssrc = packet.readUInt32BE(8);
+
+    const meta = {
+      version: firstByte >> 6,
+      padding: !!((firstByte >> 5) & 1),
+      extension: !!((firstByte >> 4) & 1),
+      csrcCount: firstByte & 0b1111,
+      payloadType: packet[1] & 0b1111111,
+      marker: packet[1] >> 7,
+      sequenceNum: packet.readUInt16BE(2),
+      timestamp: packet.readUInt32BE(4),
+      ssrc,
+      data: packet.slice(12),
+    };
+    return meta;
+  }
+
   _write(chunk, enc, done) {
     if (!this.startTime) {
       /**
@@ -73,29 +96,49 @@ class VideoDispatcher extends Writable {
     if (!this.voiceConnection.authentication.secret_key) return;
     if (chunk.length <= 12) return;
 
-    const firstByte = chunk[0];
-
-    const ssrc = chunk.readUInt32BE(8);
-
-    const meta = {
-      version: firstByte >> 6,
-      padding: !!((firstByte >> 5) & 1),
-      extension: !!((firstByte >> 4) & 1),
-      csrcCount: firstByte & 0b1111,
-      payloadType: chunk[1] & 0b1111111,
-      marker: chunk[1] >> 7,
-      sequenceNum: chunk.readUInt16BE(2),
-      timestamp: chunk.readUInt32BE(4),
-      ssrc,
-      data: chunk.slice(12),
-    };
+    const meta = this._parseRTPPacket(chunk);
 
     this._sendPacket(this._createPacket(meta.sequenceNum, meta.timestamp, meta.data, meta.marker));
-    this.streamingData.sequence++;
-    this.streamingData.bigCounter += 0x15;
-    if (this.streamingData.sequence >= 2 ** 16) this.streamingData.sequence = 0;
-    if (this.streamingData.bigCounter >= 2 ** 24) this.streamingData.bigCounter = 0;
     done();
+  }
+
+  _writeNal(nal, timestamp, mtu, last = false) {
+    if (nal.length < mtu) {
+      this._sendPacket(this._createPacket(this.streamingData.sequence, timestamp, nal, last));
+    } else {
+      const firstHeader = Buffer.alloc(2);
+      firstHeader[0] = (nal[0] & 0b11100000) | 0b00011100;
+      firstHeader[1] = (nal[0] & 0b00011111) | 0b10000000;
+
+      this._sendPacket(
+        this._createPacket(
+          this.streamingData.sequence,
+          timestamp,
+          Buffer.concat([firstHeader, nal.slice(1, mtu)]),
+          false,
+        ),
+      );
+
+      let offset = mtu;
+
+      while (offset < nal.length) {
+        const end = offset + mtu >= nal.length;
+        const fuAHeader = Buffer.alloc(2);
+        fuAHeader[0] = (nal[0] & 0b11100000) | 0b00011100;
+        fuAHeader[1] = (nal[0] & 0b00011111) | (end ? 0b01000000 : 0b00000000);
+
+        this._sendPacket(
+          this._createPacket(
+            this.streamingData.sequence,
+            timestamp,
+            Buffer.concat([fuAHeader, nal.slice(offset, offset + mtu)]),
+            last && end,
+          ),
+        );
+        offset += mtu;
+      }
+    }
+    if (this.streamingData.sequence >= 2 ** 16) this.streamingData.sequence %= 2 ** 16;
   }
 
   _destroy(err, cb) {
@@ -132,6 +175,7 @@ class VideoDispatcher extends Writable {
   }
 
   _createPacket(sequence, timestamp, buffer, marker) {
+    // Console.log(`[packet] ${util.inspect(buffer)}`);
     const packetBuffer = Buffer.alloc(12);
     packetBuffer[0] = 0x90;
     packetBuffer[1] = this.payloadType | (marker ? 0x80 : 0);
@@ -146,6 +190,10 @@ class VideoDispatcher extends Writable {
     numBuffer.writeUInt16BE(this.streamingData.sequence, 13);
     numBuffer.writeUIntBE(this.streamingData.bigCounter, 5, 3);
     numBuffer.writeUIntBE(0xfff, 9, 3);
+    this.streamingData.sequence++;
+    this.streamingData.bigCounter += 0x15;
+    if (this.streamingData.sequence >= 2 ** 16) this.streamingData.sequence = 0;
+    if (this.streamingData.bigCounter >= 2 ** 24) this.streamingData.bigCounter = 0;
     if (this.voiceConnection.videoCodec === 'VP8') {
       let payloadDescriptorLen = 1;
       const descriptorFirstByte = buffer[0];

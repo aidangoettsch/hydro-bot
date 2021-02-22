@@ -111,6 +111,10 @@ const MTU = 1400;
 const IMAGE_EXTS = ['.jpg', '.png', '.jpeg'];
 const JPEG_EXTS = ['.jpg', '.jpeg'];
 
+const NAL_START_A = Buffer.from([0, 0, 0, 1]);
+const NAL_START_B = Buffer.from([0, 0, 1]);
+const RTP_PERIOD = BigInt(Math.floor(1000000000 / 90000));
+
 /**
  * A Video Player for a Voice Connection.
  * @private
@@ -122,12 +126,6 @@ class VideoPlayer extends EventEmitter {
     this.voiceConnection = voiceConnection;
 
     this.dispatcher = null;
-
-    this.streamingData = {
-      channels: 2,
-      sequence: 0,
-      timestamp: 0,
-    };
   }
 
   destroy() {
@@ -345,6 +343,48 @@ class VideoPlayer extends EventEmitter {
       port,
       video: this.dispatcher,
       ...(audio ? { audio: this.voiceConnection.play(streams.audioStream, { type: 'opus', volume }) } : {}),
+    };
+  }
+
+  async playRawVideo(videoStream, audioStream, { volume = 1.0 } = {}) {
+    await this.voiceConnection.resetVideoContext();
+
+    this.dispatcher = this.createDispatcher();
+    this.startTime = process.hrtime.bigint();
+
+    videoStream.on('data', data => {
+      if (!this.dispatcher) return;
+
+      const timeDelta = process.hrtime.bigint() - this.startTime;
+      const timestamp = Number(BigInt.asUintN(32, timeDelta / RTP_PERIOD));
+
+      if (this.voiceConnection.videoCodec === 'H264') {
+        let nextNal = 4;
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const nextStartA = data.indexOf(NAL_START_A, nextNal);
+          if (nextStartA !== -1) {
+            this.dispatcher._writeNal(data.slice(nextNal, nextStartA), timestamp, MTU);
+            nextNal = nextStartA + 4;
+            continue;
+          }
+
+          const nextStartB = data.indexOf(NAL_START_B, nextNal);
+          if (nextStartB !== -1) {
+            this.dispatcher._writeNal(data.slice(nextNal, nextStartB), timestamp, MTU);
+            nextNal = nextStartB + 3;
+            continue;
+          }
+
+          this.dispatcher._writeNal(data.slice(nextNal), timestamp, MTU, true);
+          break;
+        }
+      }
+    });
+
+    return {
+      video: this.dispatcher,
+      audio: this.voiceConnection.play(audioStream, { type: 'opus', volume }),
     };
   }
 

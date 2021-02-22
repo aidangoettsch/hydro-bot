@@ -22,21 +22,41 @@ StreamOutput::StreamOutput(const Napi::CallbackInfo &info) : ObjectWrap(info) {
 
   Napi::Value onData = callbacks.Get("onData");
   if (!onData.IsFunction()) {
-    Napi::TypeError::New(env, "onData")
+    Napi::TypeError::New(env, "onData must be a function")
         .ThrowAsJavaScriptException();
     return;
   }
-  obs_data_set_int(settings, "onData", reinterpret_cast<long long int>(&onData));
+
+  onDataRef = Napi::ThreadSafeFunction::New(
+      env,
+      onData.As<Napi::Function>(),
+      "StreamOutput.onData",
+      0,
+      1
+  );
+  obs_data_set_int(settings, "onData", reinterpret_cast<long long int>(&onDataRef));
 
   Napi::Value onStop = callbacks.Get("onStop");
   if (!onStop.IsFunction()) {
-    Napi::TypeError::New(env, "onStop")
+    Napi::TypeError::New(env, "onStop must be a function")
         .ThrowAsJavaScriptException();
     return;
   }
-  obs_data_set_int(settings, "onStop", reinterpret_cast<long long int>(&onStop));
 
-  obs_data_set_int(settings, "env", reinterpret_cast<long long int>(&env));
+  onStopRef = Napi::ThreadSafeFunction::New(
+      env,
+      onStop.As<Napi::Function>(),
+      "StreamOutput.onData",
+      0,
+      1
+  );
+  obs_data_set_int(settings, "onStop", reinterpret_cast<long long int>(&onStopRef));
+
+  auto jsThis = new Napi::ObjectReference(Napi::Persistent(env.Global()));
+  obs_data_set_int(settings, "jsThis", reinterpret_cast<long long int>(jsThis));
+
+  auto asyncContext = new Napi::AsyncContext(env, "streamOutput", jsThis->Value());
+  obs_data_set_int(settings, "asyncContext", reinterpret_cast<long long int>(asyncContext));
 
   name = info[0].ToString().Utf8Value();
   outputReference = obs_output_create(outputId->c_str(), name.c_str(), settings, nullptr);

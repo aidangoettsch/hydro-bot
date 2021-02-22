@@ -16,15 +16,20 @@ Source::Source(const Napi::CallbackInfo &info) : ObjectWrap(info) {
     return;
   }
 
-  if (!info[2].IsUndefined() && !info[2].IsNull() && !info[2].IsObject()) {
-    Napi::TypeError::New(env, "Third argument must be null or object")
+  if (!info[2].IsFunction() && !info[2].IsNull() && !info[2].IsUndefined()) {
+    Napi::TypeError::New(env, "Third argument must be a function or null")
+        .ThrowAsJavaScriptException();
+    return;
+  }
+
+  if (!info[3].IsUndefined() && !info[3].IsNull() && !info[3].IsObject()) {
+    Napi::TypeError::New(env, "Fourth argument must be an object or null")
         .ThrowAsJavaScriptException();
     return;
   }
 
   sourceType = info[0].ToString().Utf8Value();
   name = info[1].ToString().Utf8Value();
-
   if (sourceType == "scene") return;
 
   obs_data_t *settings = obs_get_source_defaults(sourceType.c_str());
@@ -49,10 +54,32 @@ Source::Source(const Napi::CallbackInfo &info) : ObjectWrap(info) {
 
   obs_source_update(sourceReference, settings);
   obs_source_set_audio_mixers(sourceReference, 1);
+  if (info[2].IsFunction()) {
+    signalHandler = Napi::ThreadSafeFunction::New(
+        env, info[2].As<Napi::Function>(), "StreamOutput.onData", 0, 1);
+
+    sourceSignalHandler = obs_source_get_signal_handler(sourceReference);
+    signal_handler_connect_global(
+        sourceSignalHandler,
+        [](void *sourceData, const char *signalName, calldata_t *signalData) {
+          auto source = reinterpret_cast<Source *>(sourceData);
+          auto signal = new struct signal();
+          signal->name = signalName;
+          signal->data = signalData;
+
+          source->signalHandler.BlockingCall(
+              signal, [](Napi::Env env, Napi::Function jsCallback,
+                         struct signal *data) {
+                jsCallback.Call({Napi::String::New(env, data->name)});
+                delete data;
+              });
+        },
+        this);
+  }
 }
 
 Source::~Source() {
-  obs_source_release(sourceReference);
+  if (sourceReference != nullptr) obs_source_release(sourceReference);
 }
 
 Napi::Value Source::UpdateSettings(const Napi::CallbackInfo &info) {
