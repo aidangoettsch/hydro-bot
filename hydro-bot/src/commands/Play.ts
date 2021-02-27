@@ -32,10 +32,14 @@ export default class Play extends Command {
 
     switch (media.type) {
       case "media":
+        const sendQueueMessage = guild.nowPlaying
         await guild.addMedia({
           ...media,
           requester: msg.author
         })
+        if (sendQueueMessage) {
+          msg.channel.send(this.bot.embedFactory.info(`Added [${media.title}](${media.videoURL}) to the queue!\nPosition: #${guild.queue.length}`))
+        }
         break
       case "playlist":
         await media.contents.forEach(m => guild.addMedia({

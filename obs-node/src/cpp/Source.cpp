@@ -1,5 +1,4 @@
 #include "Source.h"
-#include "utils.h"
 
 Source::Source(const Napi::CallbackInfo &info) : ObjectWrap(info) {
   Napi::Env env = info.Env();
@@ -30,7 +29,14 @@ Source::Source(const Napi::CallbackInfo &info) : ObjectWrap(info) {
 
   sourceType = info[0].ToString().Utf8Value();
   name = info[1].ToString().Utf8Value();
-  if (sourceType == "scene") return;
+  if (sourceType == "scene") {
+    if (info[2].IsFunction()) {
+      signalHandler = Napi::ThreadSafeFunction::New(
+          env, info[2].As<Napi::Function>(), "Source Signal Handler", 0, 1);
+
+      return;
+    }
+  }
 
   obs_data_t *settings = obs_get_source_defaults(sourceType.c_str());
 
@@ -40,8 +46,8 @@ Source::Source(const Napi::CallbackInfo &info) : ObjectWrap(info) {
     return;
   }
 
-  if (info[2].IsObject()) {
-    DataFromObject(env, info[2].ToObject(), settings);
+  if (info[3].IsObject()) {
+    DataFromObject(env, info[3].ToObject(), settings);
   }
 
   sourceReference = obs_source_create(sourceType.c_str(), name.c_str(), nullptr, nullptr);
@@ -56,26 +62,32 @@ Source::Source(const Napi::CallbackInfo &info) : ObjectWrap(info) {
   obs_source_set_audio_mixers(sourceReference, 1);
   if (info[2].IsFunction()) {
     signalHandler = Napi::ThreadSafeFunction::New(
-        env, info[2].As<Napi::Function>(), "StreamOutput.onData", 0, 1);
+        env, info[2].As<Napi::Function>(), "Source Signal Handler", 0, 1);
 
-    sourceSignalHandler = obs_source_get_signal_handler(sourceReference);
-    signal_handler_connect_global(
-        sourceSignalHandler,
-        [](void *sourceData, const char *signalName, calldata_t *signalData) {
-          auto source = reinterpret_cast<Source *>(sourceData);
-          auto signal = new struct signal();
-          signal->name = signalName;
-          signal->data = signalData;
-
-          source->signalHandler.BlockingCall(
-              signal, [](Napi::Env env, Napi::Function jsCallback,
-                         struct signal *data) {
-                jsCallback.Call({Napi::String::New(env, data->name)});
-                delete data;
-              });
-        },
-        this);
+    SetupSignalHandler();
   }
+}
+
+void Source::SetupSignalHandler() {
+  if (!signalHandler) return;
+
+  sourceSignalHandler = obs_source_get_signal_handler(sourceReference);
+  signal_handler_connect_global(
+      sourceSignalHandler,
+      [](void *sourceData, const char *signalName, calldata_t *signalData) {
+        auto source = reinterpret_cast<Source *>(sourceData);
+        auto signal = new struct signal();
+        signal->name = signalName;
+        signal->data = signalData;
+
+        source->signalHandler.BlockingCall(
+            signal, [](Napi::Env env, Napi::Function jsCallback,
+                       struct signal *data) {
+              jsCallback.Call({Napi::String::New(env, data->name)});
+              delete data;
+            });
+      },
+      this);
 }
 
 Source::~Source() {
@@ -167,12 +179,26 @@ Napi::Value Source::AssignOutputChannel(const Napi::CallbackInfo &info) {
   return env.Null();
 }
 
+Napi::Value Source::GetHeight(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+
+  return Napi::Number::New(env, obs_source_get_height(sourceReference));
+}
+
+Napi::Value Source::GetWidth(const Napi::CallbackInfo &info) {
+  Napi::Env env = info.Env();
+
+  return Napi::Number::New(env, obs_source_get_width(sourceReference));
+}
+
 Napi::Function Source::GetClass(Napi::Env env) {
   return DefineClass(env, "Source", {
       Source::InstanceMethod("updateSettings", &Source::UpdateSettings),
       Source::InstanceMethod("getSettings", &Source::GetSettings),
       Source::InstanceMethod("startTransition", &Source::StartTransition),
-      Source::InstanceMethod("assignOutputChannel", &Source::AssignOutputChannel)
+      Source::InstanceMethod("assignOutputChannel", &Source::AssignOutputChannel),
+      Source::InstanceMethod("getHeight", &Source::GetHeight),
+      Source::InstanceMethod("getWidth", &Source::GetWidth)
   });
 }
 

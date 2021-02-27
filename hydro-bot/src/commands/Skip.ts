@@ -12,7 +12,7 @@ export default class Skip extends Command {
   }
 
   async execute(msg: Discord.Message, args: string[], guild: GuildState): Promise<void> {
-    await guild.skipTrack()
+    await guild.finishTrack()
     msg.channel.send(this.bot.embedFactory.info("Skipping track..."))
   }
 }

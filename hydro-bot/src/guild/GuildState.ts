@@ -7,60 +7,15 @@ import {Bot} from "../bot";
 import {MediaResult} from "../downloader/Downloader";
 import {StreamDispatcher, TextChannel, User, VoiceChannel, VoiceConnection} from "discord.js";
 import path from "path";
-import PuppeteerCapture from "../ui/PuppeteerCapture";
 import debugBase from "debug";
-import {PassThrough} from "stream";
-import ChildProcess from 'child_process';
-import obs, {AudioEncoder, Output, Scene, Source, Studio, VideoEncoder} from 'obs-node'
+import {AudioEncoder, Output, Scene, Source, Studio, VideoEncoder} from 'obs-node'
 import {SceneItem, StreamOutput} from "obs-node/dist";
 import segfaultHandler from "segfault-handler";
 
 segfaultHandler.registerHandler("crash.log")
+const webUiPath = `file://${require.resolve("web-ui/build/index.html")}`
 
 const debugVideo = debugBase('hydro-bot:video')
-const IMAGE_EXTS = ['.jpg', '.png', '.jpeg'];
-const JPEG_EXTS = ['.jpg', '.jpeg'];
-const MTU = 1400;
-
-const FFMPEG_CONFIG = {
-  VP8: {
-    codec: "libvpx",
-    args: [
-      'cpu-used=2',
-      'deadline=realtime',
-    ]
-  },
-  VP9: {
-    codec: "libvpx-vp9",
-    args: [
-      'cpu-used=2',
-      'deadline=realtime',
-      'strict=experimental'
-    ]
-  },
-  H264: {
-    codec: "libx264",
-    args: [
-      'x264-params=bufsize=1M:pix_fmt=yuv420p:threads=2:preset=veryfast:profile=baseline',
-    ]
-  },
-  H264_NVENC: {
-    codec: "h264_nvenc",
-    args: [
-      'bufsize=4M',
-      // 'pixfmt=yuv420p',
-      'profile=baseline',
-    ]
-  },
-  opus: {
-    codec: "libopus",
-    args: [
-      'ar=48000',
-      // '-af',
-      // 'pan=stereo|FL < 1.0*FL + 0.707*FC + 0.707*BL|FR < 1.0*FR + 0.707*FC + 0.707*BR',
-    ]
-  },
-}
 
 export type QueuedMedia = MediaResult & {requester: User}
 
@@ -87,8 +42,6 @@ export default class GuildState {
   private readonly configPath: string;
 
   private voiceState: VoiceState | null = null
-
-  private ffmpeg?: ChildProcess.ChildProcess
 
   constructor (private bot: Bot, public id: string) {
     this.configPath = `../../config/${id}.json`
@@ -158,7 +111,7 @@ export default class GuildState {
       audio: videoScene.addSource(sources.audio),
       text: videoScene.addSource(sources.text),
     }
-    videoScene.asSource().assignOutputChannel(0)
+    videoScene.assignOutputChannel(0)
 
     const audioEncoder = new AudioEncoder("ffmpeg_opus", "Opus Encoder", 0, {
       "bitrate": 64
@@ -170,14 +123,7 @@ export default class GuildState {
     })
 
     const output = new StreamOutput("stream output")
-
-    // output.videoStream.on('data', (d) => {
-    //   debugVideo(`video ${d.toString('hex')}`)
-    // })
-
-    // output.audioStream.on('data', (d) => {
-    //   debugVideo(`audio ${util.inspect(d)}`)
-    // })
+    
     const {audio: audioDispatcher} = await voiceConnection.playRawVideo(output.videoStream, output.audioStream, {volume: this.config.volume})
 
     output.setAudioEncoder(audioEncoder)
@@ -199,6 +145,14 @@ export default class GuildState {
       sources
     }
 
+    this.voiceState.sceneItems.video.setTransformInfo({
+      ...this.voiceState.sceneItems.video.getTransformInfo(),
+      boundsX: 1920,
+      boundsY: 1080,
+      boundsAlignment: 0,
+      boundsType: 2,
+    })
+
     await logChannel.send(this.bot.embedFactory.info(
         `Joined voice channel: [${voiceChannel.id}] on guild [${voiceChannel.guild.name}]`
     ))
@@ -211,6 +165,20 @@ export default class GuildState {
       await this.voiceState.logChannel.send(this.bot.embedFactory.info(
           'Queue has been emptied. Queue something else with $play!'
       ))
+      this.voiceState.sources.video.updateSettings({
+        close_when_inactive: true,
+        hw_decode: false,
+        input: "",
+        is_local_file: false,
+        seekable: true
+      })
+      this.voiceState.sources.audio.updateSettings({
+        close_when_inactive: true,
+        hw_decode: false,
+        input: "",
+        is_local_file: false,
+        seekable: true
+      })
     } else if (this.voiceState.voiceConnection.channel.members.array().length == 1) {
       await this.voiceState.logChannel.send(this.bot.embedFactory.info(
           'Empty voice channel detected. Leaving voice channel...'
@@ -259,18 +227,12 @@ export default class GuildState {
       is_local_file: false,
       seekable: true
     })
-    if (resources[1]) {
-      this.voiceState.sources.audio.updateSettings({
-        close_when_inactive: true,
-        hw_decode: false,
-        input: resources[1].resource,
-        is_local_file: false,
-        seekable: true
-      })
-    }
-
-    this.voiceState.sources.video.on('media_started', () => {
-      console.log(this.voiceState?.sceneItems.video.getTransformInfo())
+    this.voiceState.sources.audio.updateSettings({
+      close_when_inactive: true,
+      hw_decode: false,
+      input: resources[1] ? resources[1].resource : "",
+      is_local_file: false,
+      seekable: true
     })
 
     await this.voiceState.logChannel.send(this.bot.embedFactory.mediaInfo(media))
@@ -286,6 +248,21 @@ export default class GuildState {
 
     this.voiceState.voiceConnection.disconnect()
 
+    this.voiceState.sources.video.updateSettings({
+      close_when_inactive: true,
+      hw_decode: false,
+      input: "",
+      is_local_file: false,
+      seekable: true
+    })
+    this.voiceState.sources.audio.updateSettings({
+      close_when_inactive: true,
+      hw_decode: false,
+      input: "",
+      is_local_file: false,
+      seekable: true
+    })
+
     this.voiceState.sceneItems = {}
     this.voiceState.sources = {}
     this.voiceState = null
@@ -300,12 +277,6 @@ export default class GuildState {
     if (this.voiceState.playing) {
       this.voiceState.audioDispatcher.setVolume(volume)
     }
-  }
-
-  async skipTrack(): Promise<void> {
-    if (!this.voiceState) throw new Error("Not connected to a voice channel!")
-
-    this.ffmpeg?.kill()
   }
 
   public get inVoice(): boolean {

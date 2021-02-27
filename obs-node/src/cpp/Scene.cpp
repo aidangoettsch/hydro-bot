@@ -4,7 +4,7 @@
 Scene::Scene(const Napi::CallbackInfo &info): Napi::ObjectWrap<Scene>(info) {
   Napi::Env env = info.Env();
 
-  if (info.Length() != 1) {
+  if (info.Length() < 1) {
     Napi::TypeError::New(env, "Wrong number of arguments")
         .ThrowAsJavaScriptException();
     return;
@@ -12,6 +12,12 @@ Scene::Scene(const Napi::CallbackInfo &info): Napi::ObjectWrap<Scene>(info) {
 
   if (!info[0].IsString()) {
     Napi::TypeError::New(env, "First argument must be an string")
+        .ThrowAsJavaScriptException();
+    return;
+  }
+
+  if (!info[1].IsFunction() && !info[1].IsNull() && !info[1].IsUndefined()) {
+    Napi::TypeError::New(env, "Second argument must be a function or null")
         .ThrowAsJavaScriptException();
     return;
   }
@@ -34,6 +40,8 @@ Scene::Scene(const Napi::CallbackInfo &info): Napi::ObjectWrap<Scene>(info) {
   }
 
   obs_source_addref(sourceReference);
+
+  signalHandler = Napi::Persistent(info[1].As<Napi::Function>());
 }
 
 Scene::~Scene() {
@@ -68,7 +76,7 @@ Napi::Value Scene::AddSource(const Napi::CallbackInfo &info) {
       return env.Null();
     }
 
-    Napi::Object napiSceneItem = SceneItem::GetClass(env).New(argumentList);
+    Napi::Object napiSceneItem = SceneItem::GetClass(env).New( {Napi::String::New(env, "")} );
     SceneItem *sceneItemObject = SceneItem::Unwrap(napiSceneItem);
     sceneItemObject->sceneItemReference = sceneItem;
 
@@ -82,15 +90,17 @@ Napi::Value Scene::AddSource(const Napi::CallbackInfo &info) {
 
 Napi::Value Scene::AsSource(const Napi::CallbackInfo &info) {
   auto env = info.Env();
-  argumentList = std::vector<napi_value>();
 
-  argumentList.push_back(Napi::String::New(env, "scene"));
-  argumentList.push_back(Napi::String::New(env, name));
-  Napi::Object napiSource = Source::GetClass(env).New(argumentList);
+  Napi::Object napiSource = Source::GetClass(env).New( {
+      Napi::String::New(env, "scene"),
+      Napi::String::New(env, name),
+      signalHandler.Value(),
+  } );
 
   Source *sourceObject = Source::Unwrap(napiSource);
   sourceObject->sourceReference = sourceReference;
   obs_source_addref(sourceReference);
+  sourceObject->SetupSignalHandler();
 
   return reinterpret_cast<Napi::Value &&>(napiSource);
 }

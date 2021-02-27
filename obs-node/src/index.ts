@@ -65,10 +65,10 @@ export interface OutputService {
     updateSettings(settings: ObsData): void
 }
 
-export interface Scene {
-    new(name: string)
+export interface SceneInternal {
+    new(name: string, signalListener: (signal: string) => void)
     addSource(source: Source): SceneItem
-    asSource(): Source
+    asSource(): SourceInternal
 }
 
 export interface SceneItem {
@@ -96,6 +96,8 @@ interface SourceInternal {
     getSettings(): string
     assignOutputChannel(channel: number): void
     startTransition(): void
+    getWidth(): number
+    getHeight(): number
 }
 
 export interface Studio {
@@ -127,7 +129,7 @@ declare interface obs {
     AudioEncoder: AudioEncoder
     Output: Output
     OutputService: OutputService
-    Scene: Scene
+    Scene: SceneInternal
     Source: SourceInternal
     Studio: Studio,
     StreamOutput: StreamOutputInternal,
@@ -191,12 +193,16 @@ export class StreamOutput {
 export class Source extends EventEmitter {
     protected source: SourceInternal
 
-    constructor(sourceId: string, name: string, settings: ObsData) {
+    constructor(sourceId: string | SourceInternal, name: string, settings?: ObsData) {
         super();
-        this.source = new obsInstance.Source(sourceId, name, (signal: string) => {
-            console.log(`[${name}] ${signal}`)
-            this.emit(signal)
-        }, settings)
+        if (typeof sourceId === "string") {
+            this.source = new obsInstance.Source(sourceId, name, (signal: string) => {
+                console.log(`[${name}] ${signal}`)
+                this.emit(signal)
+            }, settings)
+        } else {
+            this.source = sourceId
+        }
     }
 
     updateSettings(settings: ObsData): void {
@@ -209,17 +215,41 @@ export class Source extends EventEmitter {
     assignOutputChannel(channel: number): void {
         this.source.assignOutputChannel(channel)
     }
-}
 
+    getWidth(): number {
+        return this.source.getWidth()
+    }
+
+    getHeight(): number {
+        return this.source.getHeight()
+    }
+}
 
 export class Transition extends Source {
     startTransition(): void {
         this.source.startTransition()
     }
 }
+
+export class Scene extends Source {
+    protected scene: SceneInternal
+
+    constructor(name: string) {
+        const scene = new obsInstance.Scene(name, (signal: string) => {
+            console.log(`[${name}] ${signal}`)
+            this.emit(signal)
+        })
+        super(scene.asSource(), name);
+        this.scene = scene
+    }
+
+    addSource(source: Source): SceneItem {
+        return this.scene.addSource(source)
+    }
+}
+
 export const AudioEncoder = obsInstance.AudioEncoder
 export const Output = obsInstance.Output
 export const OutputService = obsInstance.OutputService
-export const Scene = obsInstance.Scene
 export const Studio = obsInstance.Studio
 export const VideoEncoder = obsInstance.VideoEncoder

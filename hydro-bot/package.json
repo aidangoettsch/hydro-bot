@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node build/bot.js",
+    "start": "node --trace_gc build/bot.js",
     "valgrind": "valgrind node --trace_gc build/bot.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

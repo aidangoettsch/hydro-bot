@@ -3,6 +3,7 @@
 #include "Source.h"
 #include <napi.h>
 #include <obs.h>
+#include "utils.h"
 
 class Scene: public Napi::ObjectWrap<Scene> {
 public:
@@ -16,7 +17,7 @@ public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports);
 
 private:
-  std::vector<napi_value> argumentList;
+  Napi::FunctionReference signalHandler;
   std::string name;
   obs_scene_t *sceneReference;
   obs_source_t *sourceReference;
