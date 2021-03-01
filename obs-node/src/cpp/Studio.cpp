@@ -10,6 +10,8 @@
 #include <QPushButton>
 #include <filesystem>
 #include <iostream>
+#include <X11/Xlib.h>
+#include <obs-nix-platform.h>
 QApplication *qApplication;
 #endif
 
@@ -48,6 +50,8 @@ Napi::Value Studio::Startup(const Napi::CallbackInfo &info) {
     std::filesystem::current_path(currentWorkDir);
   };
 
+  obs_set_nix_platform(OBS_NIX_PLATFORM_X11_GLX);
+  obs_set_nix_platform_display(XOpenDisplay(nullptr));
   bool startup = obs_startup(info[1].As<Napi::String>().Utf8Value().c_str(), nullptr, nullptr);
 
   if (!startup || !obs_initialized()) {
@@ -58,6 +62,7 @@ Napi::Value Studio::Startup(const Napi::CallbackInfo &info) {
   }
 
   LoadModule("image-source");
+  LoadModule("obs-browser");
   LoadModule("obs-ffmpeg");
   LoadModule("obs-filters");
   LoadModule("obs-outputs");

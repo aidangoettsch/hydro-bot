@@ -15,7 +15,7 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo &info) : ObjectWrap(info) {
     return;
   }
 
-  if (!info[3].IsUndefined() && !info[3].IsNull() && !info[3].IsObject()) {
+  if (!info[2].IsUndefined() && !info[2].IsNull() && !info[2].IsObject()) {
     Napi::TypeError::New(env, "Third argument must be null or object")
         .ThrowAsJavaScriptException();
     return;
@@ -25,8 +25,8 @@ VideoEncoder::VideoEncoder(const Napi::CallbackInfo &info) : ObjectWrap(info) {
   name = info[1].ToString().Utf8Value();
 
   obs_data_t *settings = obs_encoder_defaults(encoderId.c_str());
-  if (info[3].IsObject()) {
-    DataFromObject(env, info[3].ToObject(), settings);
+  if (info[2].IsObject()) {
+    DataFromObject(env, info[2].ToObject(), settings);
   }
 
   encoderReference = obs_video_encoder_create(encoderId.c_str(), name.c_str(), settings, nullptr);

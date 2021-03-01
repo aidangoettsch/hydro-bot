@@ -21,7 +21,7 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo &info) : ObjectWrap(info) {
     return;
   }
 
-  if (!info[4].IsUndefined() && !info[4].IsNull() && !info[4].IsObject()) {
+  if (!info[3].IsUndefined() && !info[3].IsNull() && !info[3].IsObject()) {
     Napi::TypeError::New(env, "Third argument must be null or object")
         .ThrowAsJavaScriptException();
     return;
@@ -32,8 +32,8 @@ AudioEncoder::AudioEncoder(const Napi::CallbackInfo &info) : ObjectWrap(info) {
   mixIdx = info[2].ToNumber();
 
   obs_data_t *settings = obs_encoder_defaults(encoderId.c_str());
-  if (info[4].IsObject()) {
-    DataFromObject(env, info[4].ToObject(), settings);
+  if (info[3].IsObject()) {
+    DataFromObject(env, info[3].ToObject(), settings);
   }
 
   encoderReference = obs_audio_encoder_create(encoderId.c_str(), name.c_str(), settings, mixIdx, nullptr);

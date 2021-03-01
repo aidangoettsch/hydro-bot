@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-OBS_STUDIO_VERSION=26.1.1
+OBS_STUDIO_VERSION=master
 MAXOS_DEPS_VERSION=2020-08-30
 
 BASE_DIR="$(pwd)"
@@ -30,6 +30,8 @@ if [[ $BUILD_TYPE == 'all' || $BUILD_TYPE == 'obs-studio' ]]; then
   # Clone obs studio
   if [[ ! -d "${OBS_STUDIO_DIR}" ]]; then
     pushd "${OBS_STUDIO_BUILD_DIR}"
+    wget https://cdn-fastly.obsproject.com/downloads/cef_binary_4280_linux64.tar.bz2
+    tar -xjf ./cef_binary_4280_linux64.tar.bz2
     git clone --recursive --single-branch https://github.com/obsproject/obs-studio.git "obs-studio-${OBS_STUDIO_VERSION}"
 
     pushd "${OBS_STUDIO_DIR}"
@@ -73,6 +75,8 @@ if [[ $BUILD_TYPE == 'all' || $BUILD_TYPE == 'obs-studio' ]]; then
           -DUNIX_STRUCTURE=0 \
           -DDISABLE_UI=TRUE \
           -DDISABLE_PYTHON=ON \
+          -DBUILD_BROWSER=ON \
+          -DCEF_ROOT_DIR="../../cef_binary_4280_linux64" \
           -DCMAKE_BUILD_TYPE="${RELEASE_TYPE}" \
           ..
     cmake --build . --target install --config "${RELEASE_TYPE}" -- -j 4

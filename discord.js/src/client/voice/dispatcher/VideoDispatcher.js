@@ -38,11 +38,9 @@ class VideoDispatcher extends Writable {
     this._nalBuffer = [];
 
     this.streamingData = {
-      channels: 2,
-      sequence: 0,
+      sequence: 1583,
       pictureId: 789,
       timestamp: 0,
-      bigCounter: 0,
     };
 
     this.on('finish', () => {
@@ -175,7 +173,9 @@ class VideoDispatcher extends Writable {
   }
 
   _createPacket(sequence, timestamp, buffer, marker) {
-    // Console.log(`[packet] ${util.inspect(buffer)}`);
+    const prio = (buffer[0] & 0b01100000) >> 5;
+    const nalType = buffer[0] & 0b00011111;
+    // console.log(`[packet M: ${+marker} prio: ${prio} NAL: ${nalType}] ${util.inspect(buffer)}`);
     const packetBuffer = Buffer.alloc(12);
     packetBuffer[0] = 0x90;
     packetBuffer[1] = this.payloadType | (marker ? 0x80 : 0);
@@ -187,13 +187,11 @@ class VideoDispatcher extends Writable {
     packetBuffer.copy(nonce, 0, 0, 12);
     let numBuffer;
     numBuffer = Buffer.from([0xbe, 0xde, 0, 4, 0x32, 0, 0, 0, 0x22, 0, 0, 0, 0x51, 0, 0, 0x40, 0, 0, 0, 0]);
-    numBuffer.writeUInt16BE(this.streamingData.sequence, 13);
-    numBuffer.writeUIntBE(this.streamingData.bigCounter, 5, 3);
+    numBuffer.writeUIntBE((((Date.now() << 18) + 500) / 1000) & 0xffffff, 5, 3);
     numBuffer.writeUIntBE(0xfff, 9, 3);
+    numBuffer.writeUInt16BE(this.streamingData.sequence, 13);
     this.streamingData.sequence++;
-    this.streamingData.bigCounter += 0x15;
     if (this.streamingData.sequence >= 2 ** 16) this.streamingData.sequence = 0;
-    if (this.streamingData.bigCounter >= 2 ** 24) this.streamingData.bigCounter = 0;
     if (this.voiceConnection.videoCodec === 'VP8') {
       let payloadDescriptorLen = 1;
       const descriptorFirstByte = buffer[0];

@@ -8,13 +8,9 @@ import {MediaResult} from "../downloader/Downloader";
 import {StreamDispatcher, TextChannel, User, VoiceChannel, VoiceConnection} from "discord.js";
 import path from "path";
 import debugBase from "debug";
-import {AudioEncoder, Output, Scene, Source, Studio, VideoEncoder} from 'obs-node'
-import {SceneItem, StreamOutput} from "obs-node/dist";
-import segfaultHandler from "segfault-handler";
+import {AudioEncoder, Scene, Source, SceneItem, StreamOutput, Studio, VideoEncoder} from 'obs-node'
 
-segfaultHandler.registerHandler("crash.log")
-const webUiPath = `file://${require.resolve("web-ui/build/index.html")}`
-
+const webUiPath = require.resolve("web-ui/build/index.html")
 const debugVideo = debugBase('hydro-bot:video')
 
 export type QueuedMedia = MediaResult & {requester: User}
@@ -99,6 +95,13 @@ export default class GuildState {
         is_local_file: false,
         seekable: true
       }),
+      browser: new Source("browser_source", "Browser", {
+        is_local_file: true,
+        local_file: webUiPath,
+        fps: 60,
+        width: 1920,
+        height: 1080
+      }),
       text: new Source("text_ft2_source", "pog", {
         text: "pog"
       })
@@ -107,6 +110,7 @@ export default class GuildState {
     const videoScene = new Scene("Video Scene")
 
     const sceneItems = {
+      browser: videoScene.addSource(sources.browser),
       video: videoScene.addSource(sources.video),
       audio: videoScene.addSource(sources.audio),
       text: videoScene.addSource(sources.text),
@@ -114,16 +118,25 @@ export default class GuildState {
     videoScene.assignOutputChannel(0)
 
     const audioEncoder = new AudioEncoder("ffmpeg_opus", "Opus Encoder", 0, {
-      "bitrate": 64
+      bitrate: 64,
     })
 
+    // const videoEncoder = new VideoEncoder("obs_x264", "x264 Encoder",  {
+    //   profile: "baseline",
+    //   rate_control: "CRF",
+    //   crf: 25,
+    // })
+
     const videoEncoder = new VideoEncoder("ffmpeg_nvenc", "NVENC Encoder",  {
-      "bitrate": 4000,
-      "profile": "baseline"
+      profile: "baseline",
+      preset: "default",
+      rate_control: "CQP",
+      cqp: 25,
+      bf: -1,
     })
 
     const output = new StreamOutput("stream output")
-    
+
     const {audio: audioDispatcher} = await voiceConnection.playRawVideo(output.videoStream, output.audioStream, {volume: this.config.volume})
 
     output.setAudioEncoder(audioEncoder)

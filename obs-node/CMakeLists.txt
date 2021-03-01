@@ -12,6 +12,7 @@ message(STATUS "'OBS_STUDIO_DIR' = ${OBS_STUDIO_DIR}")
 # Include QT for linux
 if(UNIX AND NOT APPLE)
     find_package(Qt5X11Extras REQUIRED)
+    find_package(X11 REQUIRED)
     find_package(Qt5Widgets ${FIND_MODE})
     if(NOT Qt5Widgets_FOUND)
         message(FATAL_ERROR "Failed to find Qt5")
@@ -59,6 +60,7 @@ elseif(UNIX)
     LIST(APPEND OBS_NODE_DEPS
         ${OBS_STUDIO_DIR}/bin/64bit/libobs.so
         Qt5::Widgets
+        X11
     )
 elseif(WIN32)
     LIST(APPEND OBS_NODE_DEPS

@@ -107,7 +107,7 @@ const FFMPEG_ARGS = {
     'OUTPUT_URL',
   ],
 };
-const MTU = 1400;
+const MTU = 1330;
 const IMAGE_EXTS = ['.jpg', '.png', '.jpeg'];
 const JPEG_EXTS = ['.jpg', '.jpeg'];
 
@@ -358,21 +358,24 @@ class VideoPlayer extends EventEmitter {
       const timeDelta = process.hrtime.bigint() - this.startTime;
       const timestamp = Number(BigInt.asUintN(32, timeDelta / RTP_PERIOD));
 
+      let first = true;
       if (this.voiceConnection.videoCodec === 'H264') {
         let nextNal = 4;
         // eslint-disable-next-line no-constant-condition
         while (true) {
           const nextStartA = data.indexOf(NAL_START_A, nextNal);
           if (nextStartA !== -1) {
-            this.dispatcher._writeNal(data.slice(nextNal, nextStartA), timestamp, MTU);
+            this.dispatcher._writeNal(data.slice(nextNal, nextStartA), timestamp, MTU, !first);
             nextNal = nextStartA + 4;
+            first = false;
             continue;
           }
 
           const nextStartB = data.indexOf(NAL_START_B, nextNal);
           if (nextStartB !== -1) {
-            this.dispatcher._writeNal(data.slice(nextNal, nextStartB), timestamp, MTU);
+            this.dispatcher._writeNal(data.slice(nextNal, nextStartB), timestamp, MTU, !first);
             nextNal = nextStartB + 3;
+            first = false;
             continue;
           }
 
