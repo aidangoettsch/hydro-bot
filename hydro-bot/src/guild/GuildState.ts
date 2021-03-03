@@ -121,19 +121,19 @@ export default class GuildState {
       bitrate: 64,
     })
 
-    // const videoEncoder = new VideoEncoder("obs_x264", "x264 Encoder",  {
-    //   profile: "baseline",
-    //   rate_control: "CRF",
-    //   crf: 25,
-    // })
-
-    const videoEncoder = new VideoEncoder("ffmpeg_nvenc", "NVENC Encoder",  {
+    const videoEncoder = new VideoEncoder("obs_x264", "x264 Encoder",  {
       profile: "baseline",
-      preset: "default",
-      rate_control: "CQP",
-      cqp: 25,
-      bf: -1,
+      rate_control: "CRF",
+      crf: 25,
     })
+
+    // const videoEncoder = new VideoEncoder("ffmpeg_nvenc", "NVENC Encoder",  {
+    //   profile: "baseline",
+    //   preset: "default",
+    //   rate_control: "CQP",
+    //   cqp: 25,
+    //   bf: -1,
+    // })
 
     const output = new StreamOutput("stream output")
 

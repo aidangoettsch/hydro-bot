@@ -1,8 +1,10 @@
 'use strict';
 
 const EventEmitter = require('events');
+const util = require('util');
 const Speaking = require('../../../util/Speaking');
 const secretbox = require('../util/Secretbox');
+const VideoDispatcher = require("../dispatcher/VideoDispatcher");
 const { SILENCE_FRAME } = require('../util/Silence');
 
 // The delay between packets when a user is considered to have stopped speaking
@@ -81,9 +83,44 @@ class PacketHandler extends EventEmitter {
     return packet;
   }
 
+  _parseRTCPPacket(packet) {
+    const firstByte = packet[0];
+
+    const { secret_key, mode } = this.receiver.connection.authentication;
+
+    // Choose correct nonce depending on encryption
+    let end;
+    if (mode === 'xsalsa20_poly1305_lite') {
+      packet.copy(this.nonce, 0, packet.length - 4);
+      end = packet.length - 4;
+    } else if (mode === 'xsalsa20_poly1305_suffix') {
+      packet.copy(this.nonce, 0, packet.length - 24);
+      end = packet.length - 24;
+    } else {
+      packet.copy(this.nonce, 0, 0, 12);
+    }
+
+    let data = secretbox.methods.open(packet.slice(8, end), this.nonce, secret_key);
+    if (!data) return new Error('Failed to decrypt voice packet');
+    data = Buffer.from(data);
+
+    return {
+      version: firstByte >> 6,
+      padding: !!((firstByte >> 5) & 1),
+      reportCount: firstByte & 0b11111,
+      payloadType: packet[1],
+      ssrc: packet.readUInt32BE(4),
+      data,
+    };
+  }
+
   push(buffer) {
-    const ssrc = buffer.readUInt32BE(8);
-    const userStat = this.connection.ssrcMap.get(ssrc);
+    const meta = VideoDispatcher._parseRTPPacket(buffer);
+    if (meta.payloadType >= 71 && meta.payloadType <= 78 && this.connection.videoPlayer.dispatcher) {
+      this.connection.videoPlayer.dispatcher.handleRTCP(this._parseRTCPPacket(buffer));
+      return;
+    }
+    const userStat = this.connection.ssrcMap.get(meta.ssrc);
     if (!userStat) return;
 
     let opusPacket;
@@ -104,24 +141,24 @@ class PacketHandler extends EventEmitter {
       }
     }
 
-    let speakingTimeout = this.speakingTimeouts.get(ssrc);
+    let speakingTimeout = this.speakingTimeouts.get(meta.ssrc);
     if (typeof speakingTimeout === 'undefined') {
       // Ensure at least the speaking bit is set.
       // As the object is by reference, it's only needed once per client re-connect.
       if (userStat.speaking === 0) {
         userStat.speaking = Speaking.FLAGS.SPEAKING;
       }
-      this.connection.onSpeaking({ user_id: userStat.userID, ssrc: ssrc, speaking: userStat.speaking });
+      this.connection.onSpeaking({ user_id: userStat.userID, ssrc: meta.ssrc, speaking: userStat.speaking });
       speakingTimeout = this.receiver.connection.client.setTimeout(() => {
         try {
-          this.connection.onSpeaking({ user_id: userStat.userID, ssrc: ssrc, speaking: 0 });
+          this.connection.onSpeaking({ user_id: userStat.userID, ssrc: meta.ssrc, speaking: 0 });
           this.receiver.connection.client.clearTimeout(speakingTimeout);
-          this.speakingTimeouts.delete(ssrc);
+          this.speakingTimeouts.delete(meta.ssrc);
         } catch {
           // Connection already closed, ignore
         }
       }, DISCORD_SPEAKING_DELAY);
-      this.speakingTimeouts.set(ssrc, speakingTimeout);
+      this.speakingTimeouts.set(meta.ssrc, speakingTimeout);
     } else {
       speakingTimeout.refresh();
     }

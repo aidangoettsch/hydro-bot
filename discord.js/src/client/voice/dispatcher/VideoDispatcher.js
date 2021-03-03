@@ -4,8 +4,10 @@ const { Writable } = require('stream');
 const util = require('util');
 const secretbox = require('../util/Secretbox');
 
+const MTU = 1330;
 const MAX_NONCE_SIZE = 2 ** 32 - 1;
 const nonce = Buffer.alloc(24);
+const RTP_PERIOD = BigInt(Math.floor(1000000000 / 90000));
 
 /**
  * @external WritableStream
@@ -35,7 +37,7 @@ class VideoDispatcher extends Writable {
     this._nonce = 0;
     this._nonceBuffer = Buffer.alloc(24);
 
-    this._nalBuffer = [];
+    this._cachedIFrame = Buffer.alloc(0);
 
     this.streamingData = {
       sequence: 1583,
@@ -62,7 +64,7 @@ class VideoDispatcher extends Writable {
     this.on('error', () => streamError());
   }
 
-  _parseRTPPacket(packet) {
+  static _parseRTPPacket(packet) {
     const firstByte = packet[0];
 
     const ssrc = packet.readUInt32BE(8);
@@ -94,14 +96,29 @@ class VideoDispatcher extends Writable {
     if (!this.voiceConnection.authentication.secret_key) return;
     if (chunk.length <= 12) return;
 
-    const meta = this._parseRTPPacket(chunk);
+    const meta = VideoDispatcher._parseRTPPacket(chunk);
 
     this._sendPacket(this._createPacket(meta.sequenceNum, meta.timestamp, meta.data, meta.marker));
     done();
   }
 
-  _writeNal(nal, timestamp, mtu, last = false) {
-    if (nal.length < mtu) {
+  _writeNal(nal, now, last = false) {
+    if (!this.hrStartTime) {
+      /**
+       * Emitted once the stream has started to play.
+       * @event StreamDispatcher#start
+       */
+      this.hrStartTime = process.hrtime.bigint();
+    }
+
+    const timeDelta = now - this.hrStartTime;
+    const timestamp = Number(BigInt.asUintN(32, timeDelta / RTP_PERIOD));
+    const prio = (nal[0] & 0b01100000) >> 5;
+    const nalType = nal[0] & 0b00011111;
+    console.log(`[packet prio: ${prio} NAL: ${nalType}] ${util.inspect(nal)}`);
+
+    if (nalType === 5) this._cachedIFrame = nal;
+    if (nal.length < MTU) {
       this._sendPacket(this._createPacket(this.streamingData.sequence, timestamp, nal, last));
     } else {
       const firstHeader = Buffer.alloc(2);
@@ -112,15 +129,15 @@ class VideoDispatcher extends Writable {
         this._createPacket(
           this.streamingData.sequence,
           timestamp,
-          Buffer.concat([firstHeader, nal.slice(1, mtu)]),
+          Buffer.concat([firstHeader, nal.slice(1, MTU)]),
           false,
         ),
       );
 
-      let offset = mtu;
+      let offset = MTU;
 
       while (offset < nal.length) {
-        const end = offset + mtu >= nal.length;
+        const end = offset + MTU >= nal.length;
         const fuAHeader = Buffer.alloc(2);
         fuAHeader[0] = (nal[0] & 0b11100000) | 0b00011100;
         fuAHeader[1] = (nal[0] & 0b00011111) | (end ? 0b01000000 : 0b00000000);
@@ -129,11 +146,11 @@ class VideoDispatcher extends Writable {
           this._createPacket(
             this.streamingData.sequence,
             timestamp,
-            Buffer.concat([fuAHeader, nal.slice(offset, offset + mtu)]),
+            Buffer.concat([fuAHeader, nal.slice(offset, offset + MTU)]),
             last && end,
           ),
         );
-        offset += mtu;
+        offset += MTU;
       }
     }
     if (this.streamingData.sequence >= 2 ** 16) this.streamingData.sequence %= 2 ** 16;
@@ -173,9 +190,6 @@ class VideoDispatcher extends Writable {
   }
 
   _createPacket(sequence, timestamp, buffer, marker) {
-    const prio = (buffer[0] & 0b01100000) >> 5;
-    const nalType = buffer[0] & 0b00011111;
-    // console.log(`[packet M: ${+marker} prio: ${prio} NAL: ${nalType}] ${util.inspect(buffer)}`);
     const packetBuffer = Buffer.alloc(12);
     packetBuffer[0] = 0x90;
     packetBuffer[1] = this.payloadType | (marker ? 0x80 : 0);
@@ -236,6 +250,72 @@ class VideoDispatcher extends Writable {
       this._setSpeaking(0);
       this.emit('debug', `Failed to send a packet - ${e}`);
     });
+  }
+
+  handleReceiverReport(report) {
+    const reportData = {
+      ssrc: report.readUInt32BE(),
+      fractionLost: report.readUInt8(4),
+      packetsLost: report.readUIntBE(5, 3),
+      highestSeqNum: report.readUInt32BE(8),
+      jitter: report.readUInt32BE(12),
+      lsr: report.readUInt32BE(16),
+      dlsr: report.readUInt32BE(20),
+    };
+
+    console.log(`[rtcp rr] ${util.inspect(reportData)}`);
+  }
+
+  handleRTCP(packetData) {
+    const mediaSsrc = packetData.data.readUInt32BE();
+    if (mediaSsrc !== this.voiceConnection.videoSSRC) return;
+
+    switch (packetData.payloadType) {
+      case 201: {
+        for (let i = 0; i < packetData.reportCount; i++) {
+          this.handleReceiverReport(packetData.data.slice(i * 24, (i + 1) * 24));
+        }
+        break;
+      }
+      /*
+      case 205: {
+        const data = packetData.data.slice(4);
+        switch (packetData.reportCount) {
+          case 1: {
+            const lostPids = [];
+
+            for (let i = 0; i < data.length / 8; i++) {
+              const packetId = data.readUInt32BE(i);
+              lostPids.push(packetId);
+
+              let lossBitmap = data.readUInt32BE(i + 4);
+
+              for (let j = 1; lossBitmap > 0; lossBitmap >>= 1, j++) {
+                // eslint-disable-next-line max-depth
+                if ((lossBitmap & 1) === 1) lostPids.push((packetId + j) % 2 ** 16);
+              }
+            }
+            break;
+          }
+        }
+        break;
+      }
+      */
+      case 206: {
+        const data = packetData.data.slice(4);
+        switch (packetData.reportCount) {
+          case 1: {
+            console.log(`[PLI]`);
+            // this._writeNal(this._cachedIFrame, process.hrtime.bigint(), true);
+            break;
+          }
+          case 15: {
+            break;
+          }
+        }
+        break;
+      }
+    }
   }
 }
 

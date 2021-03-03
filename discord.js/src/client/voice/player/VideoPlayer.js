@@ -113,7 +113,6 @@ const JPEG_EXTS = ['.jpg', '.jpeg'];
 
 const NAL_START_A = Buffer.from([0, 0, 0, 1]);
 const NAL_START_B = Buffer.from([0, 0, 1]);
-const RTP_PERIOD = BigInt(Math.floor(1000000000 / 90000));
 
 /**
  * A Video Player for a Voice Connection.
@@ -352,11 +351,10 @@ class VideoPlayer extends EventEmitter {
     this.dispatcher = this.createDispatcher();
     this.startTime = process.hrtime.bigint();
 
+    const now = process.hrtime.bigint();
+
     videoStream.on('data', data => {
       if (!this.dispatcher) return;
-
-      const timeDelta = process.hrtime.bigint() - this.startTime;
-      const timestamp = Number(BigInt.asUintN(32, timeDelta / RTP_PERIOD));
 
       let first = true;
       if (this.voiceConnection.videoCodec === 'H264') {
@@ -365,7 +363,7 @@ class VideoPlayer extends EventEmitter {
         while (true) {
           const nextStartA = data.indexOf(NAL_START_A, nextNal);
           if (nextStartA !== -1) {
-            this.dispatcher._writeNal(data.slice(nextNal, nextStartA), timestamp, MTU, !first);
+            this.dispatcher._writeNal(data.slice(nextNal, nextStartA), now, !first);
             nextNal = nextStartA + 4;
             first = false;
             continue;
@@ -373,13 +371,13 @@ class VideoPlayer extends EventEmitter {
 
           const nextStartB = data.indexOf(NAL_START_B, nextNal);
           if (nextStartB !== -1) {
-            this.dispatcher._writeNal(data.slice(nextNal, nextStartB), timestamp, MTU, !first);
+            this.dispatcher._writeNal(data.slice(nextNal, nextStartB), now, !first);
             nextNal = nextStartB + 3;
             first = false;
             continue;
           }
 
-          this.dispatcher._writeNal(data.slice(nextNal), timestamp, MTU, true);
+          this.dispatcher._writeNal(data.slice(nextNal), now, true);
           break;
         }
       }
