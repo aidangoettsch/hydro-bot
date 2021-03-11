@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import {PlayingTrack, Track, TrackComponent} from "./Track";
 import {GlassCard} from "./Card";
+import {useEffect, useRef, useState} from "react";
 
 const MusicUIContainer = styled.div`
     height: 100%;
@@ -36,10 +37,35 @@ const QueueContainer = styled(GlassCard)`
     gap: 8px;
 `
 
-const Queue: React.FC<{ queue: Track[] }> = props => {
+function usePrevious<S>(value: S): S | undefined {
+    const ref = useRef<S>();
+    useEffect(() => {
+        ref.current = value;
+    });
+    return ref.current;
+}
+
+const Queue: React.FC<{ queue: Track[], nowPlaying: Track }> = props => {
+    const lastQueue = usePrevious(props.queue)
+
+    const lastIds = lastQueue?.map(t => t.id) ?? []
+    const currentIds = props.queue.map(t => t.id)
+
+    let removed = lastIds.filter(i => currentIds.includes(i))
+    const added = currentIds.filter(i => lastIds.includes(i))
+
+    const animateNowPlaying = removed.includes(props.nowPlaying.id) ? props.nowPlaying.id : false
+    removed = removed.filter(i => i !== animateNowPlaying)
+
     const body = props.queue.length > 0 ? (<>
         <QueueHeader>Queue</QueueHeader>
-        {props.queue.map((t, i) => (<GlassCard><TrackComponent {...t} key={i}/></GlassCard>))}
+        {props.queue.map(t => {
+            const wasRemoved = removed.includes(t.id)
+            const wasAdded = added.includes(t.id)
+            const isNowPlaying = t.id === animateNowPlaying
+
+            return (<GlassCard key={t.id}><TrackComponent {...t}/></GlassCard>)
+        })}
     </>) : (
         <QueueHint>Nothing is queued! Use $play [url] to add something.</QueueHint>
     )
@@ -113,7 +139,7 @@ const MusicUI: React.FC<{
     nowPlaying: PlayingTrack;
     queue: Track[];
 }> = props => (<MusicUIContainer>
-    <Queue queue={props.queue}/>
+    <Queue queue={props.queue} nowPlaying={props.nowPlaying}/>
     <NowPlaying {...props.nowPlaying}/>
 </MusicUIContainer>)
 

@@ -29,6 +29,7 @@ dependencies:
   eslint-config-prettier: 6.15.0_eslint@7.19.0
   eslint-plugin-import: 2.22.1_eslint@7.19.0
   eslint-plugin-prettier: 3.3.1_ed5b8c134bc05499b35502327b90b5cb
+  framer-motion: 3.10.2_react-dom@17.0.1+react@17.0.1
   husky: 4.3.8
   jest: 26.6.3_ts-node@9.1.1
   json-filter-loader: 1.0.0
@@ -7611,6 +7612,27 @@ packages:
       node: '>=0.10.0'
     resolution:
       integrity: sha1-QpD60n8T6Jvn8zeZxrxaCr//DRk=
+  /framer-motion/3.10.2_react-dom@17.0.1+react@17.0.1:
+    dependencies:
+      framesync: 5.2.0
+      hey-listen: 1.0.8
+      popmotion: 9.3.1
+      react: 17.0.1
+      react-dom: 17.0.1_react@17.0.1
+      style-value-types: 4.1.1
+      tslib: 1.14.1
+    dev: false
+    optionalDependencies:
+      '@emotion/is-prop-valid': 0.8.8
+    peerDependencies:
+      react: '>=16.8 || ^17.0.0'
+      react-dom: '>=16.8 || ^17.0.0'
+    resolution:
+      integrity: sha512-qJX8y8OfsU9ZMZJyRLGOfo3IT4fiR7JNcshMyIno6A2z5NYP/ELPVPvD7D70neJJEYFzsjNXp1/nHjvOaM95ww==
+  /framesync/5.2.0:
+    dev: false
+    resolution:
+      integrity: sha512-dcl92w5SHc0o6pRK3//VBVNvu6WkYkiXmHG6ZIXrVzmgh0aDYMDAaoA3p3LH71JIdN5qmhDcfONFA4Lmq22tNA==
   /fresh/0.5.2:
     dev: false
     engines:
@@ -8140,6 +8162,10 @@ packages:
     dev: false
     resolution:
       integrity: sha512-l9sfDFsuqtOqKDsQdqrMRk0U85RZc0RtOR9yPI7mRVOa4FsR/BVnZ0shmQRM96Ji99kYZP/7hn1cedc1+ApsTQ==
+  /hey-listen/1.0.8:
+    dev: false
+    resolution:
+      integrity: sha512-COpmrF2NOg4TBWUJ5UVyaCU2A88wEMkUPK4hNqyCkqHbxT92BbvfjoSozkAIIm6XhicGlJHhFdullInrdhwU8Q==
   /hh-mm-ss/1.2.0:
     dependencies:
       zero-fill: 2.2.4
@@ -11611,6 +11637,15 @@ packages:
       typescript: '*'
     resolution:
       integrity: sha512-7Wjy+9E3WwLOEL30D+m8TSTF7qJJUJLONBnwQp0518siuMxUQUbgZwssaFX+QKlZkjHZcw/IpZCt/H0srrntSg==
+  /popmotion/9.3.1:
+    dependencies:
+      framesync: 5.2.0
+      hey-listen: 1.0.8
+      style-value-types: 4.1.1
+      tslib: 1.14.1
+    dev: false
+    resolution:
+      integrity: sha512-Qozvg8rz2OGeZwWuIjqlSXqqgWto/+QL24ll8sAAc0n71KY/wvN1W4sAASxTuHv8YWdDnk9u9IdadyPo2DGvDA==
   /portfinder/1.0.28:
     dependencies:
       async: 2.6.3
@@ -14423,6 +14458,13 @@ packages:
       webpack: ^4.0.0 || ^5.0.0
     resolution:
       integrity: sha512-V7TCORko8rs9rIqkSrlMfkqA63DfoGBBJmK1kKGCcSi+BWb4cqz0SRsnp4l6rU5iwOEd0/2ePv68SV22VXon4Q==
+  /style-value-types/4.1.1:
+    dependencies:
+      hey-listen: 1.0.8
+      tslib: 1.14.1
+    dev: false
+    resolution:
+      integrity: sha512-cNLrl6jk+I1T18ZI2KIp/fcqKVuykcNELDrOz7y+TYZR97xmNdN0ewupURvVFnQxVrRJv98TMBq92VMsggq3kw==
   /styled-components/5.2.1_react-dom@17.0.1+react@17.0.1:
     dependencies:
       '@babel/helper-module-imports': 7.12.13
@@ -16390,6 +16432,7 @@ packages:
       '@types/react': 17.0.1
       '@types/react-dom': 17.0.0
       '@types/styled-components': 5.1.7
+      framer-motion: 3.10.2_react-dom@17.0.1+react@17.0.1
       react: 17.0.1
       react-dom: 17.0.1_react@17.0.1
       react-scripts: 4.0.3_3231593cf82512c55ae57b949bad2c7d
@@ -16402,7 +16445,7 @@ packages:
     peerDependencies:
       ts-node: '*'
     resolution:
-      integrity: sha512-CfrRQa4z2fpNUEJ502x5VgR31e1HcirRj2x3X9wMVCKeg8TB4RxURBnf5PsjM41Mp7H51B0KuTRKlOFmLq7HCg==
+      integrity: sha512-xX84oCUqMA/pUl99onWogHn4rkJZaXNIAnTTOw/l9vCV77LCr5iVdJ35uK5ykRoeAILSZAFAWQBTFbErGj49kQ==
       tarball: file:projects/web-ui.tgz
     version: 0.0.0
   github.com/discordjs/docgen/d40f54cfd2d0f03ff92d7ecfb29cd82694ee2c11:
@@ -16452,6 +16495,7 @@ specifiers:
   eslint-config-prettier: ^6.13.0
   eslint-plugin-import: ^2.22.1
   eslint-plugin-prettier: ^3.1.4
+  framer-motion: ~3.10.2
   husky: ^4.3.0
   jest: ^26.6.0
   json-filter-loader: ^1.0.0

@@ -2,7 +2,7 @@ import styled from "styled-components";
 import {ReactElement} from "react";
 import soundcloudIcon from "./icons/soundcloud.svg";
 
-type Service = "YouTube" | "Twitch" | "TikTok" | "Soundcloud"
+export type Service = "YouTube" | "Twitch" | "TikTok" | "Soundcloud"
 
 const TrackServiceIcon = styled.img`
     margin-right: 8px;
@@ -16,6 +16,7 @@ const serviceIcons: Record<Service, ReactElement> = {
 }
 
 export interface Track {
+    id: string;
     service: Service;
     title: string;
     author: string;
@@ -32,7 +33,7 @@ export type PlayingTrack = Track & {
 const TrackContainer = styled.div`
     display: grid;
     grid-template-columns: 128px minmax(auto, max-content);
-    grid-template-rows: repeat(3, auto);
+    grid-template-rows: 1fr min-content 1fr;
     grid-template-areas:
         "thumbnail service"
         "thumbnail title"
@@ -40,7 +41,6 @@ const TrackContainer = styled.div`
     text-align: left;
     grid-row-gap: 4px;
     grid-column-gap: 16px;
-    align-items: center;
 `
 
 const TrackServiceContainer = styled.div`
@@ -48,6 +48,7 @@ const TrackServiceContainer = styled.div`
     grid-area: service;
     display: flex;
     align-items: center;
+    align-self: end;
 `
 
 const TrackTitle = styled.p`
@@ -65,7 +66,8 @@ const TrackAuthor = styled.p`
 
 const TrackThumbnail = styled.img`
     grid-area: thumbnail;
-    width: 128px
+    width: 128px;
+    align-self: center;
 `
 
 const TrackService: React.FC<{ service: Service }> = props => (<TrackServiceContainer>
