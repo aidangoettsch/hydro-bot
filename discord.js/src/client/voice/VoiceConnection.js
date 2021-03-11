@@ -503,7 +503,6 @@ class VoiceConnection extends EventEmitter {
     if (this.videoCodec) {
       this.videoSSRC = this.authentication.ssrc + 1;
       this.rtxSSRC = this.authentication.ssrc + 2;
-      this.emit('debug', `ssrc: ${this.authentication.ssrc} ${this.videoSSRC} ${this.rtxSSRC}`);
       this.sockets.ws.sendPacket({
         op: 12,
         d: {

@@ -22,8 +22,7 @@
     "youtube-dl": "~3.1.0",
     "@types/youtube-dl": "~3.0.0",
     "@discordjs/opus": "~0.4.0",
-    "playwright": "~1.8.0",
-    "playwright-video": "~2.4.0",
+    "playwright": "~1.8.0", 
     "web-ui": "~0.1.0",
     "obs-node": "~1.0.23"
   },

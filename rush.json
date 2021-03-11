@@ -388,11 +388,6 @@
       "reviewCategory": "production"
     },
     {
-      "packageName": "playwright-video",
-      "projectFolder": "playwright-video",
-      "reviewCategory": "production"
-    },
-    {
       "packageName": "web-ui",
       "projectFolder": "web-ui",
       "reviewCategory": "production"

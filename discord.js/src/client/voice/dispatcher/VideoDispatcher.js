@@ -104,18 +104,13 @@ class VideoDispatcher extends Writable {
 
   _writeNal(nal, now, last = false) {
     if (!this.hrStartTime) {
-      /**
-       * Emitted once the stream has started to play.
-       * @event StreamDispatcher#start
-       */
-      this.hrStartTime = process.hrtime.bigint();
+      this.hrStartTime = now;
     }
 
     const timeDelta = now - this.hrStartTime;
     const timestamp = Number(BigInt.asUintN(32, timeDelta / RTP_PERIOD));
     const prio = (nal[0] & 0b01100000) >> 5;
-    const nalType = nal[0] & 0b00011111;
-    console.log(`[packet prio: ${prio} NAL: ${nalType}] ${util.inspect(nal)}`);
+    const nalType = nal[0] & 0b00011111
 
     if (nalType === 5) this._cachedIFrame = nal;
     if (nal.length < MTU) {
@@ -247,7 +242,6 @@ class VideoDispatcher extends Writable {
       return;
     }
     this.voiceConnection.sockets.udp.send(packet).catch(e => {
-      this._setSpeaking(0);
       this.emit('debug', `Failed to send a packet - ${e}`);
     });
   }
@@ -263,7 +257,7 @@ class VideoDispatcher extends Writable {
       dlsr: report.readUInt32BE(20),
     };
 
-    console.log(`[rtcp rr] ${util.inspect(reportData)}`);
+    // console.log(`[rtcp rr] ${util.inspect(reportData)}`);
   }
 
   handleRTCP(packetData) {
@@ -305,7 +299,6 @@ class VideoDispatcher extends Writable {
         const data = packetData.data.slice(4);
         switch (packetData.reportCount) {
           case 1: {
-            console.log(`[PLI]`);
             // this._writeNal(this._cachedIFrame, process.hrtime.bigint(), true);
             break;
           }

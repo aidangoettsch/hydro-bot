@@ -102,18 +102,14 @@ export default class GuildState {
         width: 1920,
         height: 1080
       }),
-      text: new Source("text_ft2_source", "pog", {
-        text: "pog"
-      })
     }
 
     const videoScene = new Scene("Video Scene")
 
     const sceneItems = {
-      browser: videoScene.addSource(sources.browser),
       video: videoScene.addSource(sources.video),
+      browser: videoScene.addSource(sources.browser),
       audio: videoScene.addSource(sources.audio),
-      text: videoScene.addSource(sources.text),
     }
     videoScene.assignOutputChannel(0)
 
@@ -233,17 +229,17 @@ export default class GuildState {
     ]
 
     const url = resources[0].resource
-    this.voiceState.sources.video.updateSettings({
-      close_when_inactive: true,
-      hw_decode: false,
-      input: url,
-      is_local_file: false,
-      seekable: true
-    })
     this.voiceState.sources.audio.updateSettings({
       close_when_inactive: true,
       hw_decode: false,
       input: resources[1] ? resources[1].resource : "",
+      is_local_file: false,
+      seekable: true
+    })
+    this.voiceState.sources.video.updateSettings({
+      close_when_inactive: true,
+      hw_decode: false,
+      input: url,
       is_local_file: false,
       seekable: true
     })

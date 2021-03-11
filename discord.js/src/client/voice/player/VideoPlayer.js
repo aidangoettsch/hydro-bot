@@ -351,29 +351,26 @@ class VideoPlayer extends EventEmitter {
     this.dispatcher = this.createDispatcher();
     this.startTime = process.hrtime.bigint();
 
-    const now = process.hrtime.bigint();
-
     videoStream.on('data', data => {
       if (!this.dispatcher) return;
 
-      let first = true;
+      const now = process.hrtime.bigint();
+
       if (this.voiceConnection.videoCodec === 'H264') {
         let nextNal = 4;
         // eslint-disable-next-line no-constant-condition
         while (true) {
           const nextStartA = data.indexOf(NAL_START_A, nextNal);
           if (nextStartA !== -1) {
-            this.dispatcher._writeNal(data.slice(nextNal, nextStartA), now, !first);
+            this.dispatcher._writeNal(data.slice(nextNal, nextStartA), now);
             nextNal = nextStartA + 4;
-            first = false;
             continue;
           }
 
           const nextStartB = data.indexOf(NAL_START_B, nextNal);
           if (nextStartB !== -1) {
-            this.dispatcher._writeNal(data.slice(nextNal, nextStartB), now, !first);
+            this.dispatcher._writeNal(data.slice(nextNal, nextStartB), now);
             nextNal = nextStartB + 3;
-            first = false;
             continue;
           }
 
