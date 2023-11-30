@@ -1,8 +1,14 @@
 #include "StreamOutput.h"
 
+/**
+ * Create a StreamOutput object. This object wraps the output of a video
+ * encoder within OBS and passes encoded video data into Node.js as a 
+ * stream.
+ */
 StreamOutput::StreamOutput(const Napi::CallbackInfo &info) : ObjectWrap(info) {
   Napi::Env env = info.Env();
 
+  // Parse and type check arguments
   if (!info[0].IsString()) {
     Napi::TypeError::New(env, "First argument must be a string")
         .ThrowAsJavaScriptException();
@@ -15,11 +21,13 @@ StreamOutput::StreamOutput(const Napi::CallbackInfo &info) : ObjectWrap(info) {
     return;
   }
 
+  // Create an OBS settings object for this output. The ID stream_output represents
+  // the output defined by the StreamOutputInternal class.
   auto outputId = new std::string("stream_output");
-  Napi::Object callbacks = info[1].ToObject();
-
   obs_data_t *settings = obs_output_defaults(outputId->c_str());
 
+  // Get the onData function passed in and add it to the OBS settings object
+  Napi::Object callbacks = info[1].ToObject();
   Napi::Value onData = callbacks.Get("onData");
   if (!onData.IsFunction()) {
     Napi::TypeError::New(env, "onData must be a function")
@@ -36,6 +44,7 @@ StreamOutput::StreamOutput(const Napi::CallbackInfo &info) : ObjectWrap(info) {
   );
   obs_data_set_int(settings, "onData", reinterpret_cast<long long int>(&onDataRef));
 
+  // Get the onStop function passed in and add it to the OBS settings object
   Napi::Value onStop = callbacks.Get("onStop");
   if (!onStop.IsFunction()) {
     Napi::TypeError::New(env, "onStop must be a function")
@@ -52,6 +61,7 @@ StreamOutput::StreamOutput(const Napi::CallbackInfo &info) : ObjectWrap(info) {
   );
   obs_data_set_int(settings, "onStop", reinterpret_cast<long long int>(&onStopRef));
 
+  // Pass in this object and an AsyncContext to allow us to call back into Node.js from the internal output
   auto jsThis = new Napi::ObjectReference(Napi::Persistent(env.Global()));
   obs_data_set_int(settings, "jsThis", reinterpret_cast<long long int>(jsThis));
 
@@ -64,6 +74,9 @@ StreamOutput::StreamOutput(const Napi::CallbackInfo &info) : ObjectWrap(info) {
   delete outputId;
 }
 
+/**
+ * Set the video encoder used to produce this output.
+ */
 Napi::Value StreamOutput::SetVideoEncoder(const Napi::CallbackInfo &info) {
   Napi::Env env = info.Env();
 
@@ -79,6 +92,7 @@ Napi::Value StreamOutput::SetVideoEncoder(const Napi::CallbackInfo &info) {
     return env.Null();
   }
 
+  // Unwrap the object from Node.js into a pointer to the underlying C++ type and pass that encoder to OBS
   try {
     VideoEncoder *encoder = VideoEncoder::Unwrap(info[0].ToObject());
 
@@ -92,6 +106,9 @@ Napi::Value StreamOutput::SetVideoEncoder(const Napi::CallbackInfo &info) {
   return Napi::Value();
 }
 
+/**
+ * Set the audio encoder used to produce this output.
+ */
 Napi::Value StreamOutput::SetAudioEncoder(const Napi::CallbackInfo &info) {
   Napi::Env env = info.Env();
 
@@ -112,6 +129,7 @@ Napi::Value StreamOutput::SetAudioEncoder(const Napi::CallbackInfo &info) {
     idx = info[1].ToNumber();
   }
 
+  // Unwrap the object from Node.js into a pointer to the underlying C++ type and pass that encoder to OBS
   try {
     AudioEncoder *encoder = AudioEncoder::Unwrap(info[0].ToObject());
 
@@ -125,6 +143,9 @@ Napi::Value StreamOutput::SetAudioEncoder(const Napi::CallbackInfo &info) {
   return env.Null();
 }
 
+/**
+ * Set the audio mixer ID used to produce this output.
+ */
 Napi::Value StreamOutput::SetMixer(const Napi::CallbackInfo &info) {
   Napi::Env env = info.Env();
 
@@ -139,13 +160,18 @@ Napi::Value StreamOutput::SetMixer(const Napi::CallbackInfo &info) {
   return env.Null();
 }
 
+/**
+ * Update the callbacks registered for this output
+ */
 Napi::Value StreamOutput::UpdateSettings(const Napi::CallbackInfo &info) {
   Napi::Env env = info.Env();
 
+  // Get the current settings object
   if (!info[0].IsObject()) {}
   Napi::Object callbacks = info[0].ToObject();
   obs_data_t *settings = obs_output_get_settings(outputReference);
 
+  // Get the callback pointers and update the settings object
   Napi::Value onData = callbacks.Get("onData");
   if (onData.IsFunction()) {
     Napi::FunctionReference onDataRef = Napi::Persistent(onData.As<Napi::Function>());
@@ -158,10 +184,14 @@ Napi::Value StreamOutput::UpdateSettings(const Napi::CallbackInfo &info) {
     obs_data_set_int(settings, "onStop", reinterpret_cast<long long int>(&onStopRef));
   }
 
+  // Update the settings object
   obs_output_update(outputReference, settings);
   return env.Null();
 }
 
+/**
+ * Start the output.
+ */
 Napi::Value StreamOutput::Start(const Napi::CallbackInfo &info) {
   Napi::Env env = info.Env();
 
@@ -174,6 +204,9 @@ Napi::Value StreamOutput::Start(const Napi::CallbackInfo &info) {
   return env.Null();
 }
 
+/**
+ * Stop the output.
+ */
 Napi::Value StreamOutput::Stop(const Napi::CallbackInfo &info) {
   Napi::Env env = info.Env();
 
@@ -182,6 +215,9 @@ Napi::Value StreamOutput::Stop(const Napi::CallbackInfo &info) {
   return env.Null();
 }
 
+/**
+ * Define this class as a type exposed to Node.js .
+ */
 Napi::Function StreamOutput::GetClass(Napi::Env env) {
   return DefineClass(env, "StreamOutput", {
       StreamOutput::InstanceMethod("setVideoEncoder", &StreamOutput::SetVideoEncoder),
@@ -193,6 +229,9 @@ Napi::Function StreamOutput::GetClass(Napi::Env env) {
   });
 }
 
+/**
+ * Add this class to the exports of the module. 
+ */
 Napi::Object StreamOutput::Init(Napi::Env env, Napi::Object exports) {
   exports.Set(Napi::String::New(env, "StreamOutput"), GetClass(env));
   return exports;
